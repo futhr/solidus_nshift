@@ -4,11 +4,10 @@ module Spree
   module Calculator::Shipping
     class NshiftCheckout < ShippingCalculator
       ADMIN_PREFERENCE_NAMES = %i[
-        connection_id allowed_service_codes option_kind weight_unit dimension_unit locale failure_policy
+        connection_id allowed_service_codes option_kind weight_unit dimension_unit locale
       ].freeze
       WEIGHT_UNITS = %w[kg g lb oz].freeze
       DIMENSION_UNITS = %w[cm mm m in].freeze
-      FAILURE_POLICIES = %w[strict retryable_ui].freeze
       OPTION_KINDS = %w[any home pickup].freeze
 
       preference :connection_id, :integer
@@ -17,7 +16,6 @@ module Spree
       preference :weight_unit, :string, default: "kg"
       preference :dimension_unit, :string, default: "cm"
       preference :locale, :string, default: "en"
-      preference :failure_policy, :string, default: "strict"
 
       validate :nshift_configuration
 
@@ -69,7 +67,6 @@ module Spree
         errors.add(:preferred_dimension_unit, "is not supported") unless DIMENSION_UNITS.include?(preferred_dimension_unit)
         errors.add(:preferred_option_kind, "is not supported") unless OPTION_KINDS.include?(preferred_option_kind)
         errors.add(:preferred_locale, "must be a two-letter language code") unless /\A[a-z]{2}\z/.match?(preferred_locale)
-        errors.add(:preferred_failure_policy, "is not supported") unless FAILURE_POLICIES.include?(preferred_failure_policy)
       end
     end
   end
