@@ -1,0 +1,8 @@
+[
+  {
+    "message": "Not valid postal code",
+    "messageCode": "ZipCode",
+    "field": "Address_Zipcode",
+    "type": "error"
+  }
+]

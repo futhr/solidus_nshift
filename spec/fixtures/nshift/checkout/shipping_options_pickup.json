@@ -1,0 +1,22 @@
+{
+  "shippingOptions": [
+    {
+      "optionId": "pickup-standard",
+      "sourceSystemCarrierId": "POSTNORD",
+      "sourceSystemProductId": "P19",
+      "name": "Collect nearby",
+      "price": {"value": 59.0},
+      "currencyCode": "SEK",
+      "pickupPoints": [
+        {
+          "pickupPointId": "SE-10001",
+          "name": "Synthetic Market",
+          "address1": "Examplegatan 1",
+          "postalCode": "113 59",
+          "city": "Stockholm",
+          "countryCode": "SE"
+        }
+      ]
+    }
+  ]
+}

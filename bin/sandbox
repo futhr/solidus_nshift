@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ruby -S bundle exec rake extension:test_app

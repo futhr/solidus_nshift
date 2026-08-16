@@ -1,8 +1,5 @@
----
-inherit_from: .hound.yml
+inherit_gem:
+  solidus_dev_support: .rubocop.yml
 
 AllCops:
-  Exclude:
-    - spec/dummy/**/*
-    - bin/*
-    - Guardfile
+  TargetRubyVersion: 3.2

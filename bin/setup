@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ruby -S bundle config set --local path .bundle
+ruby -S bundle install

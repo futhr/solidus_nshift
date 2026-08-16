@@ -1,0 +1,4 @@
+{
+  "code": "SESSION_EXPIRED",
+  "message": "The checkout session has expired"
+}

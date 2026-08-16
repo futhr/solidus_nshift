@@ -2,4 +2,4 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
-load File.expand_path("../spec/dummy/bin/rails", __dir__)
+load Gem.bin_path("rake", "rake")

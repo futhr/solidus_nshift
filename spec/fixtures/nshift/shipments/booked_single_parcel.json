@@ -1,0 +1,22 @@
+[
+  {
+    "id": "10252317",
+    "status": "PRINTED",
+    "shipmentNo": "4381670977",
+    "orderNo": "solidus-store-h123-1",
+    "reference": "solidus-store-h123-1",
+    "serviceId": "P19",
+    "normalShipment": true,
+    "returnShipment": false,
+    "consolidated": false,
+    "parcels": [{"parcelNo": "69563053713SE"}],
+    "prints": [
+      {
+        "id": "192364271",
+        "description": "Label",
+        "type": "pdf",
+        "href": "https://api.unifaun.com/rs-extapi/v1/shipments/10252317/prints/192364271"
+      }
+    ]
+  }
+]
