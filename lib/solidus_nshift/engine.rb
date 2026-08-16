@@ -25,6 +25,18 @@ module SolidusNshift
       ]
     end
 
+    initializer "solidus_nshift.backend_menu", after: "spree.load_config_initializers" do
+      next unless defined?(Spree::Backend::Config)
+
+      Spree::Backend::Config.menu_items << Spree::BackendConfiguration::MenuItem.new(
+        label: :nshift,
+        icon: "truck",
+        url: "/solidus_nshift/admin/fulfillments",
+        match_path: %r{/solidus_nshift/admin},
+        condition: -> { can?(:admin, SolidusNshift::Fulfillment) }
+      )
+    end
+
     config.generators do |generator|
       generator.test_framework :rspec
     end

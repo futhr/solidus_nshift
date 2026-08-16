@@ -1,0 +1,80 @@
+<% content_for :page_title, "nShift fulfillment #{@fulfillment.merchant_reference}" %>
+
+<div class="mb-3">
+  <%= link_to "All fulfillments", admin_fulfillments_path, class: "btn btn-secondary" %>
+  <% if %w[unbooked rejected].include?(@fulfillment.state) %>
+    <%= button_to "Book", book_admin_fulfillment_path(@fulfillment), method: :post, class: "btn btn-primary d-inline" %>
+  <% end %>
+  <% if @fulfillment.state == "reconciliation_pending" %>
+    <%= button_to "Reconcile", reconcile_admin_fulfillment_path(@fulfillment), method: :post, class: "btn btn-warning d-inline" %>
+  <% end %>
+  <% if @fulfillment.connection.tracking_enabled? && @fulfillment.provider_shipment_id.present? %>
+    <%= button_to "Sync tracking", sync_tracking_admin_fulfillment_path(@fulfillment), method: :post, class: "btn btn-secondary d-inline" %>
+  <% end %>
+  <% if @fulfillment.provider_shipment_id.present? %>
+    <%= button_to "Refresh documents", refresh_documents_admin_fulfillment_path(@fulfillment), method: :post, class: "btn btn-secondary d-inline" %>
+  <% end %>
+  <% if @fulfillment.booked? %>
+    <%= button_to "Cancel provider shipment", cancel_admin_fulfillment_path(@fulfillment), method: :post,
+      class: "btn btn-danger d-inline", data: {confirm: "Cancel this nShift shipment?"} %>
+  <% end %>
+</div>
+
+<dl class="row">
+  <dt class="col-sm-3">State</dt><dd class="col-sm-9"><%= @fulfillment.state.humanize %></dd>
+  <dt class="col-sm-3">Order / shipment</dt>
+  <dd class="col-sm-9"><%= @fulfillment.shipment.order.number %> / <%= @fulfillment.shipment.number %></dd>
+  <dt class="col-sm-3">Provider shipment</dt><dd class="col-sm-9"><%= @fulfillment.provider_shipment_id.presence || "—" %></dd>
+  <dt class="col-sm-3">Provider status</dt><dd class="col-sm-9"><%= @fulfillment.provider_status.presence || "—" %></dd>
+  <dt class="col-sm-3">Tracking</dt><dd class="col-sm-9"><%= @fulfillment.tracking_number.presence || "—" %></dd>
+  <dt class="col-sm-3">Selected option</dt>
+  <dd class="col-sm-9"><%= @fulfillment.rate_selection.label %> (<%= @fulfillment.rate_selection.service_code %>)</dd>
+  <dt class="col-sm-3">Pickup point</dt>
+  <dd class="col-sm-9"><%= @fulfillment.rate_selection.selected_pickup_point["name"].presence || "—" %></dd>
+</dl>
+
+<% if @fulfillment.last_error_message.present? %>
+  <div class="alert alert-warning">
+    <strong><%= @fulfillment.last_error_class %></strong>
+    <% if @fulfillment.last_error_code.present? %>(<%= @fulfillment.last_error_code %>)<% end %>:
+    <%= @fulfillment.last_error_message %>
+  </div>
+<% end %>
+
+<h2>Operations</h2>
+<table class="table">
+  <thead><tr><th>Kind</th><th>Status</th><th>Attempts</th><th>Provider resource</th><th>Error</th></tr></thead>
+  <tbody>
+    <% @operations.each do |operation| %>
+      <tr>
+        <td><%= operation.kind.humanize %></td>
+        <td><%= operation.status.humanize %></td>
+        <td><%= operation.attempts %></td>
+        <td><%= operation.provider_resource_id.presence || "—" %></td>
+        <td><%= operation.error_message.presence || "—" %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<h2>Documents</h2>
+<ul>
+  <% @documents.each do |document| %>
+    <li><%= link_to "#{document.description.presence || "Document"} (#{document.format.upcase})", admin_document_path(document) %></li>
+  <% end %>
+</ul>
+
+<h2>Tracking events</h2>
+<table class="table">
+  <thead><tr><th>Time</th><th>Status</th><th>Provider code</th><th>Description</th></tr></thead>
+  <tbody>
+    <% @tracking_events.each do |event| %>
+      <tr>
+        <td><%= l event.occurred_at, format: :short %></td>
+        <td><%= event.status.humanize %></td>
+        <td><%= event.code %></td>
+        <td><%= event.description %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

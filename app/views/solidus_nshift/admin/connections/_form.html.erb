@@ -1,0 +1,57 @@
+<%= form_with model: [:admin, connection], local: true do |form| %>
+  <% if connection.errors.any? %>
+    <div class="alert alert-danger">
+      <ul>
+        <% connection.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <fieldset class="mb-4">
+    <legend>General</legend>
+    <div class="form-group">
+      <%= form.label :store_id, "Store" %>
+      <%= form.collection_select :store_id, Spree::Store.order(:name), :id, :name, {}, class: "form-control" %>
+    </div>
+    <div class="form-group">
+      <%= form.label :name %>
+      <%= form.text_field :name, class: "form-control", required: true %>
+    </div>
+    <% %i[active checkout_enabled delivery_enabled tracking_enabled].each do |attribute| %>
+      <div class="form-check">
+        <%= form.check_box attribute, class: "form-check-input" %>
+        <%= form.label attribute, class: "form-check-label" %>
+      </div>
+    <% end %>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend>Checkout OAuth</legend>
+    <%= render "preference_field", form:, name: :preferred_checkout_client_id, label: "Client ID" %>
+    <%= render "secret_field", form:, name: :preferred_checkout_client_secret, label: "Client secret" %>
+    <%= render "preference_field", form:, name: :preferred_checkout_connection_id, label: "Connection ID" %>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend>Delivery REST</legend>
+    <%= render "secret_field", form:, name: :preferred_delivery_api_key_id, label: "API key ID" %>
+    <%= render "secret_field", form:, name: :preferred_delivery_api_key_secret, label: "API key secret" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_developer_id, label: "Developer ID" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_quick_id, label: "Sender Quick ID" %>
+    <div class="form-check">
+      <%= form.check_box :preferred_delivery_test_mode, class: "form-check-input" %>
+      <%= form.label :preferred_delivery_test_mode, "Print TEST labels and disable EDI forwarding", class: "form-check-label" %>
+    </div>
+  </fieldset>
+
+  <fieldset class="mb-4">
+    <legend>Shipment Data OAuth</legend>
+    <%= render "preference_field", form:, name: :preferred_tracking_client_id, label: "Client ID" %>
+    <%= render "secret_field", form:, name: :preferred_tracking_client_secret, label: "Client secret" %>
+  </fieldset>
+
+  <%= form.submit class: "btn btn-primary" %>
+  <%= link_to "Cancel", admin_connections_path, class: "btn btn-secondary" %>
+<% end %>

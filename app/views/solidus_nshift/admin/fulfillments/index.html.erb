@@ -1,0 +1,32 @@
+<% content_for :page_title, "nShift fulfillments" %>
+
+<div class="mb-3">
+  <%= link_to "Connections", admin_connections_path, class: "btn btn-secondary" %>
+</div>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Order</th>
+      <th>Shipment</th>
+      <th>Connection</th>
+      <th>Reference</th>
+      <th>State</th>
+      <th>Tracking</th>
+      <th>Updated</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @fulfillments.each do |fulfillment| %>
+      <tr>
+        <td><%= fulfillment.shipment.order.number %></td>
+        <td><%= fulfillment.shipment.number %></td>
+        <td><%= fulfillment.connection.name %></td>
+        <td><%= link_to fulfillment.merchant_reference, admin_fulfillment_path(fulfillment) %></td>
+        <td><%= fulfillment.state.humanize %></td>
+        <td><%= fulfillment.tracking_number.presence || "—" %></td>
+        <td><%= l fulfillment.updated_at, format: :short %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

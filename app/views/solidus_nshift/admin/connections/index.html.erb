@@ -1,0 +1,39 @@
+<% content_for :page_title, "nShift connections" %>
+
+<div class="mb-3">
+  <%= link_to "New connection", new_admin_connection_path, class: "btn btn-primary" %>
+</div>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Store</th>
+      <th>Capabilities</th>
+      <th>Active</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @connections.each do |connection| %>
+      <tr>
+        <td><%= connection.name %></td>
+        <td><%= connection.store.name %></td>
+        <td>
+          <%= [
+            ("Checkout" if connection.checkout_enabled?),
+            ("Delivery" if connection.delivery_enabled?),
+            ("Tracking" if connection.tracking_enabled?)
+          ].compact.join(", ") %>
+        </td>
+        <td><%= connection.active? ? "Yes" : "No" %></td>
+        <td class="text-end">
+          <%= link_to "Edit", edit_admin_connection_path(connection), class: "btn btn-sm btn-secondary" %>
+          <%= button_to "Delete", admin_connection_path(connection), method: :delete,
+            class: "btn btn-sm btn-danger", form: {class: "d-inline"},
+            data: {confirm: "Delete this nShift connection?"} %>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
