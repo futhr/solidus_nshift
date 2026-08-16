@@ -12,7 +12,7 @@ module SolidusNshift
       @sleeper = ->(seconds) { sleep(seconds) }
       @transport_factory = -> { Http::NetHttpTransport.new }
       @rate_cache_ttl = 300
-      @parcel_builder = ->(shipment) { Solidus::ShipmentSerializer.default_parcels(shipment) }
+      @parcel_builder = ->(shipment) { Solidus::PackageSerializer.default_parcels(shipment) }
       @book_shipment_job = -> { SolidusNshift::BookShipmentJob }
       @sync_tracking_job = -> { SolidusNshift::SyncTrackingJob }
     end

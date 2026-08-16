@@ -3,3 +3,5 @@ inherit_gem:
 
 AllCops:
   TargetRubyVersion: 3.2
+  Exclude:
+    - "spec/dummy/**/*"

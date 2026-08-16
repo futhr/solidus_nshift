@@ -15,7 +15,8 @@ module SolidusNshift
 
       def initialize(client_id:, client_secret:, cache:, clock: -> { Time.now },
         sleeper: ->(seconds) { sleep(seconds) }, transport: Http::NetHttpTransport.new,
-        safety_margin: DEFAULT_SAFETY_MARGIN, attempts: DEFAULT_ATTEMPTS, logger: nil)
+        safety_margin: DEFAULT_SAFETY_MARGIN, attempts: DEFAULT_ATTEMPTS, logger: nil,
+        cache_namespace: "default")
         @client_id = client_id.to_s
         @client_secret = client_secret.to_s
         @cache = cache
@@ -25,6 +26,7 @@ module SolidusNshift
         @safety_margin = Integer(safety_margin)
         @attempts = Integer(attempts)
         @logger = logger
+        @cache_namespace = cache_namespace.to_s
         @mutex = Mutex.new
         validate_configuration!
       end
@@ -103,7 +105,7 @@ module SolidusNshift
       end
 
       def cache_key
-        @cache_key ||= "solidus_nshift:oauth:#{Digest::SHA256.hexdigest(@client_id)}"
+        @cache_key ||= "solidus_nshift:oauth:#{@cache_namespace}:#{Digest::SHA256.hexdigest(@client_id)}"
       end
 
       def validate_configuration!
