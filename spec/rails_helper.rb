@@ -14,6 +14,7 @@ unless ActiveRecord::Base.connection.data_source_exists?("spree_stores")
 end
 
 SolidusDevSupport::TestingSupport::Factories.load_for(SolidusNshift::Engine)
+Dir[File.expand_path("support/**/*.rb", __dir__)].sort.each { |path| require path }
 
 RSpec.configure do |config|
   config.before do

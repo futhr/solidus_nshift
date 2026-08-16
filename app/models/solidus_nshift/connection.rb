@@ -8,6 +8,7 @@ module SolidusNshift
 
     belongs_to :store, class_name: "Spree::Store"
     has_many :rate_selections, class_name: "SolidusNshift::RateSelection", dependent: :restrict_with_error
+    has_many :fulfillments, class_name: "SolidusNshift::Fulfillment", dependent: :restrict_with_error
 
     preference :checkout_client_id, :string
     preference :checkout_client_secret, :encrypted_string
@@ -16,6 +17,7 @@ module SolidusNshift
     preference :delivery_api_key_secret, :encrypted_string
     preference :delivery_developer_id, :string
     preference :delivery_sender_quick_id, :string
+    preference :delivery_test_mode, :boolean, default: true
     preference :tracking_client_id, :string
     preference :tracking_client_secret, :encrypted_string
 
@@ -91,7 +93,7 @@ module SolidusNshift
     end
 
     def delivery_configuration
-      require_preferences(:delivery_api_key_id, :delivery_api_key_secret, :delivery_developer_id)
+      require_preferences(:delivery_api_key_id, :delivery_api_key_secret, :delivery_developer_id, :delivery_sender_quick_id)
     end
 
     def tracking_configuration

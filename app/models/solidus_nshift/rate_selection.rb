@@ -6,6 +6,7 @@ module SolidusNshift
 
     belongs_to :shipping_rate, class_name: "Spree::ShippingRate", inverse_of: :nshift_selection
     belongs_to :connection, class_name: "SolidusNshift::Connection"
+    has_one :fulfillment, class_name: "SolidusNshift::Fulfillment", dependent: :restrict_with_error
 
     validates :session_id, :external_option_id, :service_code, :label, :context_digest, presence: true
     validates :context_digest, format: {with: /\A[0-9a-f]{64}\z/}

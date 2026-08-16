@@ -33,6 +33,15 @@ module SolidusNshift
       unless Spree::ShippingRate < SolidusNshift::ShippingRateExtension
         Spree::ShippingRate.include(SolidusNshift::ShippingRateExtension)
       end
+      unless Spree::Shipment < SolidusNshift::ShipmentExtension
+        Spree::Shipment.include(SolidusNshift::ShipmentExtension)
+      end
+    end
+
+    initializer "solidus_nshift.core.pub_sub", after: "spree.core.pub_sub" do |app|
+      app.reloader.to_prepare do
+        SolidusNshift::OrderFinalizedSubscriber.new.subscribe_to(Spree::Bus)
+      end
     end
   end
 end
