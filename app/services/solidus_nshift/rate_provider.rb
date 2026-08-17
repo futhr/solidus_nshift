@@ -21,13 +21,11 @@ module SolidusNshift
       end
       return [] unless option
 
-      [option].map do |option|
-        unless option.currency == @package.shipment.order.currency
-          raise ValidationError, "nShift option currency does not match the Solidus order"
-        end
-
-        Quote.new(option:, context_digest: request.context_digest, session_expires_at: session.expires_at)
+      unless option.currency == @package.shipment.order.currency
+        raise ValidationError, "nShift option currency does not match the Solidus order"
       end
+
+      [Quote.new(option:, context_digest: request.context_digest, session_expires_at: session.expires_at)]
     end
 
     private

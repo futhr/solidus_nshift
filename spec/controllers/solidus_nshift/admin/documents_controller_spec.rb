@@ -37,4 +37,16 @@ RSpec.describe SolidusNshift::Admin::DocumentsController, type: :controller do
     expect(response.body).to start_with("%PDF-")
     expect(response.headers["Content-Disposition"]).to include("attachment")
   end
+
+  it "authorizes document administration and download" do
+    content = SolidusNshift::Delivery::DocumentContent.new(body: "%PDF-synthetic".b, content_type: "application/pdf")
+    allow(SolidusNshift::DownloadDocument).to receive(:new)
+      .and_return(instance_double(SolidusNshift::DownloadDocument, call: content))
+    expect(controller).to receive(:authorize!).with(:admin, SolidusNshift::Document).ordered
+    expect(controller).to receive(:authorize!).with(:show, SolidusNshift::Document).ordered
+
+    get :show, params: {id: document.id}
+
+    expect(response).to have_http_status(:ok)
+  end
 end

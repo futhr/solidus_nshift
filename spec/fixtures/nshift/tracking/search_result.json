@@ -1,9 +1,6 @@
-{
-  "shipments": [
-    {
-      "shipmentUuid": "shipment-uuid-2026-0001",
-      "orderNo": "solidus:store:H123:1",
-      "status": "IN_TRANSIT"
-    }
-  ]
-}
+[
+  {
+    "uuid": "shipment-uuid-2026-0001",
+    "orderNumber": "solidus:store:H123:1"
+  }
+]

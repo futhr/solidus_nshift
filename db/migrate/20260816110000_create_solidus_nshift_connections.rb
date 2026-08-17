@@ -3,7 +3,8 @@
 class CreateSolidusNshiftConnections < ActiveRecord::Migration[7.0]
   def change
     create_table :solidus_nshift_connections do |table|
-      table.references :store, null: false, foreign_key: {to_table: :spree_stores}
+      table.references :store, null: false, type: primary_key_type(:spree_stores),
+        foreign_key: {to_table: :spree_stores}
       table.string :name, null: false
       table.text :preferences
       table.boolean :active, null: false, default: true
@@ -14,5 +15,11 @@ class CreateSolidusNshiftConnections < ActiveRecord::Migration[7.0]
     end
 
     add_index :solidus_nshift_connections, [:store_id, :name], unique: true
+  end
+
+  private
+
+  def primary_key_type(table_name)
+    connection.columns(table_name).find { |column| column.name == "id" }.type
   end
 end

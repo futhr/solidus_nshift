@@ -47,4 +47,26 @@ RSpec.describe "nShift pickup selection", type: :request do
 
     expect(response).to have_http_status(:unprocessable_content)
   end
+
+  it "rolls back a point selection when the quoted package context is stale" do
+    data[:order].update!(ship_address: create(:address, country_iso_code: "SE", zipcode: "411 01"))
+
+    patch path,
+      params: {pickup_point_id: "SE-10001"},
+      headers: {"X-Spree-Order-Token" => data[:order].guest_token}
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(selection.reload.selected_pickup_point_id).to be_nil
+  end
+
+  it "rejects changes after order completion" do
+    data[:order].update!(state: "complete", completed_at: Time.current)
+
+    patch path,
+      params: {pickup_point_id: "SE-10001"},
+      headers: {"X-Spree-Order-Token" => data[:order].guest_token}
+
+    expect(response).to have_http_status(:forbidden)
+    expect(selection.reload.selected_pickup_point_id).to be_nil
+  end
 end

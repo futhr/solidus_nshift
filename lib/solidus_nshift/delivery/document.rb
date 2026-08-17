@@ -4,8 +4,13 @@ module SolidusNshift
   module Delivery
     Document = Data.define(:id, :description, :format, :href, :data) do
       def self.from_hash(value)
+        raise MalformedResponseError, "nShift Delivery document must be an object" unless value.is_a?(Hash)
+
+        id = value.fetch("id").to_s
+        raise MalformedResponseError, "nShift Delivery document omitted id" if id.empty?
+
         new(
-          id: value.fetch("id").to_s,
+          id:,
           description: value["description"].to_s,
           format: value["type"].to_s.downcase,
           href: value["href"],

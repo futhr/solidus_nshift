@@ -4,13 +4,15 @@ module SolidusNshift
   module Checkout
     PickupPoint = Data.define(:id, :name, :address1, :postal_code, :city, :country_code) do
       def self.from_hash(value)
+        raise MalformedResponseError, "nShift pickup point must be an object" unless value.is_a?(Hash)
+
         new(
-          id: value["id"] || value["pickupPointId"],
+          id: value["pickupPointId"],
           name: value["name"],
-          address1: value["address1"] || value["address"],
-          postal_code: value["postalCode"] || value["zipcode"],
+          address1: value["address1"],
+          postal_code: value["postalCode"],
           city: value["city"],
-          country_code: value["countryCode"] || value["country"]
+          country_code: value["countryCode"]
         )
       end
 

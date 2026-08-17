@@ -2,7 +2,7 @@
 
 module SolidusNshift
   module Solidus
-    class RateEstimator < ::Spree::Stock::Estimator
+    module RateEstimatorExtension
       private
 
       def calculate_shipping_rates(package)
@@ -12,7 +12,7 @@ module SolidusNshift
       def nshift_shipping_rates(package)
         nshift_shipping_methods(package).flat_map do |shipping_method|
           shipping_method.calculator.rate_quotes(package).map do |quote|
-            build_rate(shipping_method, package, quote)
+            build_nshift_rate(shipping_method, package, quote)
           end
         end
       end
@@ -23,7 +23,7 @@ module SolidusNshift
         end
       end
 
-      def build_rate(shipping_method, package, quote)
+      def build_nshift_rate(shipping_method, package, quote)
         option = quote.option
         rate = shipping_method.shipping_rates.new(cost: option.price, shipment: package.shipment)
         rate.build_nshift_selection(
@@ -42,11 +42,11 @@ module SolidusNshift
           provider_metadata: option.metadata,
           session_expires_at: quote.session_expires_at
         )
-        add_taxes(rate, package)
+        add_nshift_taxes(rate, package)
         rate
       end
 
-      def add_taxes(rate, package)
+      def add_nshift_taxes(rate, package)
         calculator = ::Spree::Config.shipping_rate_tax_calculator_class.new(package.shipment.order)
         calculator.calculate(rate).each do |tax|
           rate.taxes.new(amount: tax.amount, tax_rate: tax.tax_rate)

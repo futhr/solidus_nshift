@@ -62,7 +62,7 @@ RSpec.describe "nShift Checkout rates" do
   let(:package) { order.shipments.first.to_package }
   let(:session) do
     SolidusNshift::Checkout::Session.new(
-      id: "session-1", expires_at: 3.hours.from_now, raw_reference: "synthetic"
+      id: "session-1", expires_at: 3.hours.from_now, checkout_configuration_id: "checkout-1"
     )
   end
   let(:pickup_point) do
@@ -93,7 +93,7 @@ RSpec.describe "nShift Checkout rates" do
   end
 
   it "maps exact-price option families onto distinct configured shipping methods" do
-    rates = SolidusNshift::Solidus::RateEstimator.new.shipping_rates(package, false)
+    rates = estimator.shipping_rates(package, false)
 
     expect(rates.map(&:cost)).to contain_exactly(BigDecimal("59.0"), BigDecimal("89.5"))
     expect(rates.map(&:shipping_method)).to contain_exactly(pickup_method, home_method)
@@ -102,7 +102,7 @@ RSpec.describe "nShift Checkout rates" do
   end
 
   it "persists the immutable quote context with the selected shipping rate" do
-    rate = SolidusNshift::Solidus::RateEstimator.new.shipping_rates(package, false).first
+    rate = estimator.shipping_rates(package, false).first
     rate.shipment = order.shipments.first
     rate.save!
 
@@ -115,7 +115,6 @@ RSpec.describe "nShift Checkout rates" do
   end
 
   it "caches identical rating requests without booking a shipment" do
-    estimator = SolidusNshift::Solidus::RateEstimator.new
     2.times { estimator.shipping_rates(package, false) }
 
     expect(client).to have_received(:create_session).once
@@ -124,7 +123,6 @@ RSpec.describe "nShift Checkout rates" do
   end
 
   it "invalidates the cache context when the destination changes" do
-    estimator = SolidusNshift::Solidus::RateEstimator.new
     first_digest = estimator.shipping_rates(package, false).first.nshift_selection.context_digest
     order.update!(ship_address: create(:address, country_iso_code: "SE", zipcode: "411 01"))
     second_digest = estimator.shipping_rates(order.shipments.first.to_package, false).first.nshift_selection.context_digest
@@ -144,9 +142,32 @@ RSpec.describe "nShift Checkout rates" do
     store.shipping_methods << local_method
     allow(client).to receive(:shipping_options).and_raise(SolidusNshift::TransportError, "timed out")
 
-    rates = SolidusNshift::Solidus::RateEstimator.new.shipping_rates(package, false)
+    rates = estimator.shipping_rates(package, false)
 
     expect(rates.map(&:shipping_method)).to eq([local_method])
+  end
+
+  it "extends the configured estimator without replacing merchant behavior" do
+    custom_estimator_class = Class.new(Spree::Config.stock.estimator_class) do
+      attr_reader :merchant_estimator_called
+
+      private
+
+      def calculate_shipping_rates(package)
+        @merchant_estimator_called = true
+        super
+      end
+    end
+    custom_estimator = custom_estimator_class.new
+
+    rates = custom_estimator.shipping_rates(package, false)
+
+    expect(custom_estimator.merchant_estimator_called).to be(true)
+    expect(rates.map(&:shipping_method)).to contain_exactly(pickup_method, home_method)
+  end
+
+  it "does not replace Solidus' configured estimator class" do
+    expect(Spree::Config.stock.estimator_class).to eq(Spree::Stock::Estimator)
   end
 
   def shipping_option(id:, label:, price:, pickup_points: [])
@@ -163,5 +184,9 @@ RSpec.describe "nShift Checkout rates" do
       metadata: {},
       session_id: "session-1"
     )
+  end
+
+  def estimator
+    Spree::Config.stock.estimator_class.new
   end
 end

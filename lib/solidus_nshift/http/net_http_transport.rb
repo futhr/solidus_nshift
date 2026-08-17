@@ -16,25 +16,39 @@ module SolidusNshift
 
       def initialize(open_timeout: DEFAULT_OPEN_TIMEOUT, read_timeout: DEFAULT_READ_TIMEOUT,
         write_timeout: DEFAULT_WRITE_TIMEOUT, max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES)
-        @open_timeout = open_timeout
-        @read_timeout = read_timeout
-        @write_timeout = write_timeout
-        @max_response_bytes = max_response_bytes
+        @open_timeout = positive_number!(open_timeout, "open timeout")
+        @read_timeout = positive_number!(read_timeout, "read timeout")
+        @write_timeout = positive_number!(write_timeout, "write timeout")
+        @max_response_bytes = Integer(max_response_bytes)
+        raise ConfigurationError, "HTTP response limit must be positive" unless @max_response_bytes.positive?
+      rescue ArgumentError, TypeError
+        raise ConfigurationError, "nShift HTTP transport settings are invalid"
       end
 
       def call(method:, url:, headers: {}, body: nil)
         uri = URI.parse(url)
-        raise ConfigurationError, "nShift endpoints must use HTTPS" unless uri.is_a?(URI::HTTPS)
+        unless uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.nil? && uri.fragment.nil?
+          raise ConfigurationError, "nShift endpoints must be absolute HTTPS URLs without credentials or fragments"
+        end
 
         request = request_class(method).new(uri.request_uri, headers)
         request.body = body if body
-        response = connection(uri).request(request)
-        response_body = response.body.to_s.b
-        if response_body.bytesize > @max_response_bytes
-          raise MalformedResponseError, "nShift response exceeded #{@max_response_bytes} bytes"
+        response = nil
+        response_body = +"".b
+        connection(uri).request(request) do |streamed_response|
+          response = streamed_response
+          streamed_response.read_body do |chunk|
+            if response_body.bytesize + chunk.bytesize > @max_response_bytes
+              raise MalformedResponseError, "nShift response exceeded #{@max_response_bytes} bytes"
+            end
+
+            response_body << chunk.b
+          end
         end
 
         Response.new(status: response.code.to_i, body: response_body, headers: response.to_hash)
+      rescue URI::InvalidURIError
+        raise ConfigurationError, "nShift endpoint URL is invalid"
       end
 
       private
@@ -57,6 +71,13 @@ module SolidusNshift
         when "delete" then Net::HTTP::Delete
         else raise ArgumentError, "unsupported HTTP method: #{method}"
         end
+      end
+
+      def positive_number!(value, name)
+        number = Float(value)
+        raise ConfigurationError, "HTTP #{name} must be positive" unless number.finite? && number.positive?
+
+        number
       end
     end
   end

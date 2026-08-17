@@ -9,7 +9,7 @@ class CreateSolidusNshiftTrackingEvents < ActiveRecord::Migration[7.0]
       table.string :status, null: false
       table.datetime :occurred_at, null: false
       table.text :description
-      table.json :provider_metadata, null: false, default: {}
+      table.json :provider_metadata, null: false
       table.timestamps
     end
 

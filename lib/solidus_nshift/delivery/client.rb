@@ -11,6 +11,8 @@ module SolidusNshift
 
       BASE_URL = "https://api.unifaun.com/rs-extapi/v1"
       IDENTIFIER = /\A[0-9A-Za-z_.:-]{1,200}\z/
+      MAX_HISTORY_PAGES = 10
+      DOCUMENT_FORMATS = %w[pdf zpl].freeze
 
       def initialize(api_key_id:, api_key_secret:, transport: Http::NetHttpTransport.new,
         base_url: BASE_URL, logger: nil)
@@ -23,42 +25,55 @@ module SolidusNshift
       end
 
       def create_shipment(payload:)
+        expected_order_number = order_number!(payload)
         body = request_json(:post, "/shipments?returnFile=false", payload:, mutation: true, allow_array: true)
-        value = Array(body).first
-        raise MalformedResponseError, "nShift Delivery returned no created shipment" unless value.is_a?(Hash)
-
-        Shipment.from_hash(value)
-      end
-
-      def fetch_shipments(fetch_id: "-1")
-        body = request_json(:get, "/shipments?#{URI.encode_www_form(fetchId: fetch_id)}")
-        shipments = body["shipments"]
-        raise MalformedResponseError, "nShift Delivery shipments response omitted shipments" unless shipments.is_a?(Array)
-
-        {
-          fetch_id: body["fetchId"].to_s,
-          done: body["done"] == true,
-          min_delay: body["minDelay"],
-          shipments: shipments.map { |value| Shipment.from_hash(value) }
-        }
-      end
-
-      def find_shipment(reference:, fetch_id: "-1")
-        value = reference.to_s
-        fetch_shipments(fetch_id:).fetch(:shipments).find do |shipment|
-          shipment.reference == value || shipment.order_number == value
+        unless body.is_a?(Array) && body.one? && body.first.is_a?(Hash)
+          raise MalformedResponseError, "nShift Delivery must return exactly one created shipment"
         end
+
+        shipment = validate_supported_shipment!(Shipment.from_hash(body.first))
+        unless shipment.order_number == expected_order_number
+          raise MalformedResponseError, "nShift Delivery returned a shipment for a different order number"
+        end
+
+        shipment
+      end
+
+      def find_shipment(reference:)
+        value = reference.to_s
+        raise ValidationError, "nShift Delivery reference is required" if value.empty?
+
+        matches = history_pages(value).flat_map do |body|
+          body.fetch("shipments").filter_map do |shipment|
+            unless shipment.is_a?(Hash)
+              raise MalformedResponseError, "nShift Delivery shipment history entry must be an object"
+            end
+            next unless shipment["orderNo"].to_s == value
+
+            validate_supported_shipment!(Shipment.from_hash(shipment))
+          end
+        end.uniq(&:id)
+        if matches.length > 1
+          raise ShipmentConflictError, "nShift Delivery found multiple shipments for the merchant reference"
+        end
+
+        matches.first
       end
 
       def list_documents(shipment_id:)
         body = request_json(:get, "/shipments/#{identifier!(shipment_id)}/prints", allow_array: true)
         raise MalformedResponseError, "nShift Delivery documents response must be an array" unless body.is_a?(Array)
 
-        body.map { |value| Document.from_hash(value) }
+        body.map { |value| validate_document!(Document.from_hash(value)) }
       end
 
       def download_document(shipment_id:, document_id:, format:)
-        expected = (format.to_s.downcase == "pdf") ? "application/pdf" : "application/octet-stream"
+        normalized_format = format.to_s.downcase
+        unless DOCUMENT_FORMATS.include?(normalized_format)
+          raise ValidationError, "nShift Delivery document format is unsupported"
+        end
+
+        expected = (normalized_format == "pdf") ? "application/pdf" : "application/octet-stream"
         response = with_transport_errors do
           @transport.call(
             method: :get,
@@ -66,10 +81,7 @@ module SolidusNshift
             headers: headers.merge("Accept" => expected)
           )
         end
-        if response.status >= 400
-          body = response.body.empty? ? {} : parse_json(response, allow_array: true)
-          raise_for_status!(response, body, error_class: DocumentError)
-        end
+        raise_for_response_status!(response, error_class: DocumentError)
         content_type = first_header(response.headers, "content-type").to_s.split(";").first
         unless [expected, "application/octet-stream"].include?(content_type)
           raise DocumentError, "nShift Delivery returned an unexpected document content type"
@@ -88,6 +100,33 @@ module SolidusNshift
 
       private
 
+      def history_pages(reference)
+        pages = []
+        total_pages = 1
+        page = 0
+        while page < total_pages
+          if page >= MAX_HISTORY_PAGES
+            raise MalformedResponseError, "nShift Delivery shipment history exceeded the page limit"
+          end
+
+          query = URI.encode_www_form(page:, searchField: "orderNo", searchValue: reference)
+          body = request_json(:get, "/shipments-history?#{query}")
+          shipments = body["shipments"]
+          raise MalformedResponseError, "nShift Delivery shipment history omitted shipments" unless shipments.is_a?(Array)
+
+          total_pages = Integer(body.fetch("totalPages"))
+          unless total_pages.between?(0, MAX_HISTORY_PAGES)
+            raise MalformedResponseError, "nShift Delivery shipment history exceeded the page limit"
+          end
+
+          pages << body
+          page += 1
+        end
+        pages
+      rescue ArgumentError, TypeError, KeyError
+        raise MalformedResponseError, "nShift Delivery shipment history had invalid pagination"
+      end
+
       def request_json(method, path, payload: nil, mutation: false, allow_array: false, allow_empty: false)
         response = with_transport_errors(mutation:) do
           @transport.call(
@@ -97,10 +136,42 @@ module SolidusNshift
             body: payload && JSON.generate(payload)
           )
         end
+        raise_for_response_status!(response, mutation:)
         body = parse_json(response, allow_array:, allow_empty:)
-        raise_for_status!(response, body, mutation:)
         log(path, "success", response)
         body
+      end
+
+      def validate_supported_shipment!(shipment)
+        unless IDENTIFIER.match?(shipment.id)
+          raise MalformedResponseError, "nShift Delivery returned an invalid shipment identifier"
+        end
+        unless shipment.return_shipment == false && shipment.consolidated == false
+          raise MalformedResponseError, "nShift Delivery returned an unsupported return or consolidated shipment"
+        end
+        shipment.documents.each { |document| validate_document!(document) }
+
+        shipment
+      end
+
+      def validate_document!(document)
+        unless IDENTIFIER.match?(document.id)
+          raise MalformedResponseError, "nShift Delivery returned an invalid document identifier"
+        end
+        unless DOCUMENT_FORMATS.include?(document.format)
+          raise MalformedResponseError, "nShift Delivery returned an unsupported document format"
+        end
+
+        document
+      end
+
+      def order_number!(payload)
+        shipment = payload[:shipment] || payload["shipment"] if payload.is_a?(Hash)
+        value = shipment[:orderNo] || shipment["orderNo"] if shipment.is_a?(Hash)
+        normalized = value.to_s
+        raise ValidationError, "nShift Delivery order number is required" if normalized.empty?
+
+        normalized
       end
 
       def headers
@@ -123,7 +194,8 @@ module SolidusNshift
         raise ConfigurationError, "Delivery API key ID is required" if @api_key_id.empty?
         raise ConfigurationError, "Delivery API key secret is required" if @api_key_secret.empty?
         uri = URI.parse(@base_url)
-        raise ConfigurationError, "nShift Delivery base URL must use HTTPS" unless uri.is_a?(URI::HTTPS)
+        valid = uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
+        raise ConfigurationError, "nShift Delivery base URL must be an absolute HTTPS URL" unless valid
       rescue URI::InvalidURIError
         raise ConfigurationError, "nShift Delivery base URL is invalid"
       end

@@ -56,4 +56,23 @@ RSpec.describe SolidusNshift::ReconcileBooking do
     expect(fulfillment.last_error_message).to match(/manual provider verification/)
     expect(delivery_client).not_to have_received(:find_shipment)
   end
+
+  it "confirms an ambiguous cancellation from Shipment History" do
+    fulfillment = SolidusNshift::Fulfillment.create!(
+      shipment: data[:shipment], connection: data[:connection], rate_selection: data[:selection],
+      merchant_reference: SolidusNshift::Reference.for(data[:shipment]), state: "reconciliation_pending",
+      provider_shipment_id: "10252317"
+    )
+    operation = fulfillment.operations.create!(
+      kind: "delivery_cancel", status: "unknown", request_fingerprint: "a" * 64
+    )
+    value = nshift_fixture_json("shipments/booked_single_parcel.json").first.merge("status" => "CANCELED")
+    canceled_shipment = SolidusNshift::Delivery::Shipment.from_hash(value)
+    allow(delivery_client).to receive(:find_shipment).and_return(canceled_shipment)
+
+    described_class.new(fulfillment:).call
+
+    expect(fulfillment.reload).to have_attributes(state: "canceled", provider_status: "CANCELED")
+    expect(operation.reload).to have_attributes(status: "succeeded", provider_resource_id: "10252317")
+  end
 end

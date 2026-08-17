@@ -2,7 +2,7 @@
 
 module SolidusNshift
   class DownloadDocument
-    MAX_BYTES = 25 * 1024 * 1024
+    MAX_BYTES = Http::NetHttpTransport::DEFAULT_MAX_RESPONSE_BYTES
 
     def initialize(document:)
       @document = document

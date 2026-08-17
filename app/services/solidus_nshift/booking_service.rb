@@ -9,12 +9,14 @@ module SolidusNshift
     end
 
     def call
-      selection = SelectionValidator.new(shipment: @shipment).call
-      @fulfillment = find_or_create_fulfillment(selection)
+      @fulfillment = FulfillmentIntent.new(shipment: @shipment).call
       return @fulfillment if @fulfillment.booked?
 
-      process_checkout if @fulfillment.connection.checkout_enabled? && @fulfillment.checkout_partial_shipment_id.blank?
-      return @fulfillment if %w[reconciliation_pending rejected].include?(@fulfillment.state)
+      if @fulfillment.connection.checkout_enabled? && @fulfillment.checkout_partial_shipment_id.blank?
+        process_checkout
+        return @fulfillment if @fulfillment.checkout_partial_shipment_id.blank?
+      end
+      return @fulfillment if @fulfillment.state == "reconciliation_pending"
 
       if @fulfillment.connection.delivery_enabled?
         process_delivery unless @fulfillment.provider_shipment_id.present?
@@ -22,33 +24,22 @@ module SolidusNshift
         @fulfillment.update!({state: "partial_created"}.merge(@fulfillment.clear_error_attributes))
       end
       @fulfillment
-    rescue ActiveRecord::RecordNotUnique
-      retry
     end
 
     private
 
-    def find_or_create_fulfillment(selection)
-      Fulfillment.find_or_create_by!(shipment: @shipment) do |record|
-        record.connection = selection.connection
-        record.rate_selection = selection
-        record.merchant_reference = Reference.for(@shipment)
-      end.tap do |record|
-        if record.rate_selection_id != selection.id || record.connection_id != selection.connection_id
-          raise ShipmentConflictError, "shipment already has a different nShift fulfillment intent"
-        end
-      end
-    end
-
     def process_checkout
+      dispatched = false
       payload = Checkout::PartialShipmentPayload.new(fulfillment: @fulfillment).call
+      client = @fulfillment.connection.checkout_client
       operation = operation_for("checkout_partial", payload)
       return unless claim(operation)
 
       response = instrument("checkout", "partial_shipment") do
-        @fulfillment.connection.checkout_client.create_partial_shipment(payload:)
+        dispatched = true
+        client.create_partial_shipment(payload:)
       end
-      resource_id = response["id"] || response["shipmentId"] || response.dig("shipment", "id")
+      resource_id = response["id"]
       raise MalformedResponseError, "nShift Checkout partial shipment omitted id" if resource_id.to_s.empty?
 
       Fulfillment.transaction do
@@ -58,42 +49,58 @@ module SolidusNshift
         )
       end
     rescue *UNKNOWN_ERRORS => error
+      unless dispatched
+        mark_rejected(operation, error) if operation
+        raise
+      end
+
       mark_unknown(operation, error)
     rescue Error => error
       mark_rejected(operation, error)
     rescue => error
+      unless dispatched
+        mark_rejected(operation, error) if operation
+        raise
+      end
+
       mark_unknown(operation, error)
       raise
     end
 
     def process_delivery
+      dispatched = false
       payload = Delivery::ShipmentPayload.new(fulfillment: @fulfillment).call
+      client = @fulfillment.connection.delivery_client
       operation = operation_for("delivery_booking", payload)
       return unless claim(operation)
 
       shipment = instrument("delivery", "create_shipment") do
-        @fulfillment.connection.delivery_client.create_shipment(payload:)
+        dispatched = true
+        client.create_shipment(payload:)
       end
       PersistDeliveryResult.new(fulfillment: @fulfillment, shipment:, operation:).call
     rescue *UNKNOWN_ERRORS => error
+      unless dispatched
+        mark_rejected(operation, error) if operation
+        raise
+      end
+
       mark_unknown(operation, error, reconcile: true)
     rescue Error => error
       mark_rejected(operation, error)
     rescue => error
+      unless dispatched
+        mark_rejected(operation, error) if operation
+        raise
+      end
+
       mark_unknown(operation, error, reconcile: true)
       raise
     end
 
     def operation_for(kind, payload)
       fingerprint = PayloadFingerprint.call(payload)
-      operation = @fulfillment.operations.find_or_create_by!(kind:) do |record|
-        record.request_fingerprint = fingerprint
-      end
-      if operation.request_fingerprint != fingerprint
-        raise ShipmentConflictError, "nShift booking payload changed after intent was persisted"
-      end
-
-      operation
+      OperationIntent.new(fulfillment: @fulfillment, kind:, fingerprint:).call
     end
 
     def claim(operation)
@@ -118,7 +125,12 @@ module SolidusNshift
     end
 
     def enqueue_reconciliation
-      SolidusNshift::ReconcileBookingJob.perform_later(@fulfillment.id)
+      JobEnqueuer.call(
+        job_class: SolidusNshift::ReconcileBookingJob,
+        arguments: [@fulfillment.id],
+        operation: "reconcile_booking",
+        metadata: {fulfillment_id: @fulfillment.id, connection_id: @fulfillment.connection_id}
+      )
     end
 
     def instrument(api_family, operation, &)

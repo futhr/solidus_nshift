@@ -8,7 +8,7 @@ module SolidusNshift
 
     belongs_to :fulfillment, class_name: "SolidusNshift::Fulfillment", inverse_of: :documents
 
-    validates :provider_document_id, presence: true, uniqueness: {scope: :fulfillment_id}
+    validates :provider_document_id, presence: true
     validates :format, inclusion: {in: FORMATS}
     validates :content_type, inclusion: {in: ["application/pdf", "application/octet-stream"]}
 

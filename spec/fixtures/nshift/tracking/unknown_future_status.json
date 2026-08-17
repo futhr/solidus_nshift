@@ -1,1 +1,1 @@
-{"events": [{"eventId": "evt-4", "eventCode": "QUANTUM_HANDOFF", "eventTime": "2026-08-16T12:00:00Z", "description": "Future provider state"}]}
+{"events": [{"uuid": "evt-4", "normalizedStatusId": 9001, "normalizedStatusName": "Quantum handoff", "date": "2026-08-16T12:00:00Z", "configurationName": "Future provider state"}]}

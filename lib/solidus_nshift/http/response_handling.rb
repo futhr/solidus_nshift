@@ -26,6 +26,7 @@ module SolidusNshift
         klass = case response.status
         when 400, 422 then ValidationError
         when 401, 403 then AuthenticationError
+        when 408 then mutation ? TimeoutUnknownOutcome : ProviderUnavailableError
         when 409 then ShipmentConflictError
         when 429 then RateLimitError
         when 500..599 then mutation ? TimeoutUnknownOutcome : ProviderUnavailableError
@@ -40,6 +41,15 @@ module SolidusNshift
         )
       end
 
+      def raise_for_response_status!(response, mutation: false, error_class: Error)
+        return if response.status.between?(200, 299)
+
+        body = parse_json(response, allow_array: true, allow_empty: true)
+        raise_for_status!(response, body, mutation:, error_class:)
+      rescue MalformedResponseError
+        raise_for_status!(response, {}, mutation:, error_class:)
+      end
+
       def malformed(message, response)
         MalformedResponseError.new(
           message,
@@ -51,8 +61,8 @@ module SolidusNshift
       def provider_error_message(body, status)
         value = if body.is_a?(Hash)
           body["message"] || body["error_description"] || body["error"] || body["errors"]
-        elsif body.is_a?(Array)
-          body.first&.fetch("message", nil)
+        elsif body.is_a?(Array) && body.first.is_a?(Hash)
+          body.first["message"]
         end
         "nShift request rejected: #{value.is_a?(String) ? value.slice(0, 500) : "HTTP #{status}"}"
       end
@@ -67,7 +77,7 @@ module SolidusNshift
       end
 
       def first_header(headers, name)
-        value = headers[name] || headers[name.downcase] || headers[name.capitalize]
+        _key, value = headers.find { |key, _value| key.to_s.casecmp?(name) }
         Array(value).first
       end
 
@@ -76,7 +86,7 @@ module SolidusNshift
       rescue Timeout::Error => error
         klass = mutation ? TimeoutUnknownOutcome : TransportError
         raise klass.new("nShift request timed out", provider_code: error.class.name)
-      rescue SocketError, IOError, SystemCallError => error
+      rescue SocketError, IOError, OpenSSL::SSL::SSLError, SystemCallError => error
         klass = mutation ? TimeoutUnknownOutcome : TransportError
         raise klass.new("nShift connection failed", provider_code: error.class.name)
       end

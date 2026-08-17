@@ -17,9 +17,7 @@ module SolidusNshift
   class AuthenticationError < Error; end
   class TokenError < AuthenticationError; end
   class ValidationError < Error; end
-  class NoShippingOptions < Error; end
-  class StaleSessionError < Error; end
-  class UnsupportedServiceError < Error; end
+  class StaleSessionError < ValidationError; end
   class RateLimitError < Error; end
   class ProviderUnavailableError < Error; end
   class TransportError < Error; end
@@ -28,6 +26,5 @@ module SolidusNshift
   class ShipmentConflictError < Error; end
   class DocumentError < Error; end
   class TrackingError < Error; end
-  class OperationInProgress < Error; end
   class ReconciliationRequired < Error; end
 end

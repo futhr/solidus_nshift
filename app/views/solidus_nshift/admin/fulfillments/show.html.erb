@@ -2,10 +2,11 @@
 
 <div class="mb-3">
   <%= link_to "All fulfillments", admin_fulfillments_path, class: "btn btn-secondary" %>
-  <% if %w[unbooked rejected].include?(@fulfillment.state) %>
+  <% if %w[unbooked rejected].include?(@fulfillment.state) ||
+      (@fulfillment.state == "partial_created" && @fulfillment.connection.delivery_enabled?) %>
     <%= button_to "Book", book_admin_fulfillment_path(@fulfillment), method: :post, class: "btn btn-primary d-inline" %>
   <% end %>
-  <% if @fulfillment.state == "reconciliation_pending" %>
+  <% if %w[booking reconciliation_pending].include?(@fulfillment.state) %>
     <%= button_to "Reconcile", reconcile_admin_fulfillment_path(@fulfillment), method: :post, class: "btn btn-warning d-inline" %>
   <% end %>
   <% if @fulfillment.connection.tracking_enabled? && @fulfillment.provider_shipment_id.present? %>
@@ -43,11 +44,12 @@
 
 <h2>Operations</h2>
 <table class="table">
-  <thead><tr><th>Kind</th><th>Status</th><th>Attempts</th><th>Provider resource</th><th>Error</th></tr></thead>
+  <thead><tr><th>Kind</th><th>Revision</th><th>Status</th><th>Attempts</th><th>Provider resource</th><th>Error</th></tr></thead>
   <tbody>
     <% @operations.each do |operation| %>
       <tr>
         <td><%= operation.kind.humanize %></td>
+        <td><%= operation.revision %></td>
         <td><%= operation.status.humanize %></td>
         <td><%= operation.attempts %></td>
         <td><%= operation.provider_resource_id.presence || "—" %></td>

@@ -3,7 +3,8 @@
 class CreateSolidusNshiftFulfillments < ActiveRecord::Migration[7.0]
   def change
     create_table :solidus_nshift_fulfillments do |table|
-      table.references :shipment, null: false, foreign_key: {to_table: :spree_shipments}, index: {unique: true}
+      table.references :shipment, null: false, type: primary_key_type(:spree_shipments),
+        foreign_key: {to_table: :spree_shipments}, index: {unique: true}
       table.references :connection, null: false, foreign_key: {to_table: :solidus_nshift_connections}
       table.references :rate_selection, null: false, foreign_key: {to_table: :solidus_nshift_rate_selections}
       table.string :merchant_reference, null: false
@@ -28,5 +29,11 @@ class CreateSolidusNshiftFulfillments < ActiveRecord::Migration[7.0]
     add_index :solidus_nshift_fulfillments, :provider_shipment_id
     add_index :solidus_nshift_fulfillments, :shipment_data_uuid
     add_index :solidus_nshift_fulfillments, :state
+  end
+
+  private
+
+  def primary_key_type(table_name)
+    connection.columns(table_name).find { |column| column.name == "id" }.type
   end
 end

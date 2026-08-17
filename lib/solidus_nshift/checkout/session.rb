@@ -2,6 +2,6 @@
 
 module SolidusNshift
   module Checkout
-    Session = Data.define(:id, :expires_at, :raw_reference)
+    Session = Data.define(:id, :expires_at, :checkout_configuration_id)
   end
 end

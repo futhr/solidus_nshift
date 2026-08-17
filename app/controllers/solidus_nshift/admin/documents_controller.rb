@@ -13,6 +13,12 @@ module SolidusNshift
           filename: document.filename
         )
       end
+
+      private
+
+      def model_class
+        SolidusNshift::Document
+      end
     end
   end
 end

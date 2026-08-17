@@ -26,8 +26,22 @@ RSpec.describe SolidusNshift::Connection, type: :model do
     expect(connection.errors.attribute_names).to include(
       :preferred_delivery_api_key_id,
       :preferred_delivery_api_key_secret,
-      :preferred_delivery_developer_id
+      :preferred_delivery_developer_id,
+      :preferred_delivery_sender_name,
+      :preferred_delivery_sender_address1,
+      :preferred_delivery_sender_zipcode,
+      :preferred_delivery_sender_city,
+      :preferred_delivery_sender_country
     )
+  end
+
+  it "requires an uppercase two-letter Delivery sender country" do
+    data = create_nshift_shipment
+    data[:connection].preferred_delivery_sender_country = "swe"
+
+    expect(data[:connection]).not_to be_valid
+    expect(data[:connection].errors[:preferred_delivery_sender_country])
+      .to include("must be a two-letter uppercase country code")
   end
 
   it "requires at least one enabled capability" do

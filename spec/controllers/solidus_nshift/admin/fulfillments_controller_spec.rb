@@ -36,4 +36,41 @@ RSpec.describe SolidusNshift::Admin::FulfillmentsController, type: :controller d
       .to have_enqueued_job(SolidusNshift::ReconcileBookingJob).with(fulfillment.id)
     expect(response).to redirect_to(admin_fulfillment_path(fulfillment))
   end
+
+  it "authorizes fulfillment administration and the requested mutation" do
+    expect(controller).to receive(:authorize!).with(:admin, SolidusNshift::Fulfillment).ordered
+    expect(controller).to receive(:authorize!).with(:reconcile, SolidusNshift::Fulfillment).ordered
+
+    post :reconcile, params: {id: fulfillment.id}
+
+    expect(response).to redirect_to(admin_fulfillment_path(fulfillment))
+  end
+
+  it "does not claim success when the queue rejects a job" do
+    allow(SolidusNshift::ReconcileBookingJob).to receive(:perform_later).and_return(false)
+
+    post :reconcile, params: {id: fulfillment.id}
+
+    expect(response).to redirect_to(admin_fulfillment_path(fulfillment))
+    expect(flash[:alert]).to match(/could not be queued/)
+  end
+
+  it "uses the configured booking job" do
+    job_class = class_double(SolidusNshift::BookShipmentJob, perform_later: true)
+    SolidusNshift.configuration.book_shipment_job = -> { job_class }
+    fulfillment.update!(state: "unbooked")
+
+    post :book, params: {id: fulfillment.id}
+
+    expect(job_class).to have_received(:perform_later).with(fulfillment.shipment_id)
+    expect(response).to redirect_to(admin_fulfillment_path(fulfillment))
+  end
+
+  it "refuses an operation that is invalid for the current fulfillment state" do
+    fulfillment.update!(state: "unbooked")
+
+    expect { post :cancel, params: {id: fulfillment.id} }
+      .not_to have_enqueued_job(SolidusNshift::CancelFulfillmentJob)
+    expect(flash[:alert]).to match(/Only booked/)
+  end
 end

@@ -32,10 +32,32 @@ RSpec.describe SolidusNshift::CancelFulfillment do
     allow(client).to receive(:cancel_shipment)
       .and_raise(SolidusNshift::TimeoutUnknownOutcome, "unknown cancellation result")
 
-    2.times { described_class.new(fulfillment:).call }
+    expect { 2.times { described_class.new(fulfillment:).call } }
+      .to have_enqueued_job(SolidusNshift::ReconcileBookingJob).at_least(:once)
 
     expect(fulfillment.reload.state).to eq("reconciliation_pending")
     expect(fulfillment.operations.find_by(kind: "delivery_cancel").status).to eq("unknown")
     expect(client).to have_received(:cancel_shipment).once
+  end
+
+  it "schedules reconciliation and re-raises unexpected failures after dispatch" do
+    allow(client).to receive(:cancel_shipment).and_raise(RuntimeError, "adapter bug")
+
+    expect { described_class.new(fulfillment:).call }
+      .to have_enqueued_job(SolidusNshift::ReconcileBookingJob).and raise_error(RuntimeError, "adapter bug")
+
+    expect(fulfillment.reload.state).to eq("reconciliation_pending")
+    expect(fulfillment.operations.find_by(kind: "delivery_cancel").status).to eq("unknown")
+  end
+
+  it "does not schedule reconciliation when local client construction fails" do
+    allow(data[:connection]).to receive(:delivery_client).and_raise(RuntimeError, "client setup failed")
+
+    expect { described_class.new(fulfillment:).call }
+      .to raise_error(RuntimeError, "client setup failed")
+
+    expect(fulfillment.reload.state).to eq("booked")
+    expect(fulfillment.operations).to be_empty
+    expect(SolidusNshift::ReconcileBookingJob).not_to have_been_enqueued
   end
 end

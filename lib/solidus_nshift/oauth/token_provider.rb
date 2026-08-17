@@ -48,6 +48,10 @@ module SolidusNshift
       def cached_token
         raw = @cache.read(cache_key)
         return unless raw
+        unless raw.is_a?(Hash)
+          invalidate!
+          return
+        end
 
         token = Token.new(value: raw.fetch("value"), expires_at: Time.at(raw.fetch("expires_at")).utc)
         token if token.valid?(at: @clock.call, safety_margin: @safety_margin)
@@ -82,8 +86,8 @@ module SolidusNshift
             )
           )
         end
+        raise_for_response_status!(response)
         body = parse_json(response)
-        raise_for_status!(response, body)
         value = body["access_token"].to_s
         expires_in = Integer(body["expires_in"])
         raise MalformedResponseError, "nShift OAuth response omitted access_token" if value.empty?

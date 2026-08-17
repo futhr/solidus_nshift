@@ -22,17 +22,17 @@ module SolidusNshift
             connection_id: @calculator.preferred_connection_id,
             shipment_id: @package.shipment&.id,
             stock_location_id: @package.stock_location&.id,
-            item_ids: @package.contents.map { |content| [content.variant.id, content.quantity] }
+            item_ids: @package.contents.map { |content| [content.variant.id, content.quantity] }.sort
           }
         ).call
       end
 
-      def self.default_parcels(shipment)
+      def self.default_parcels(shipment, weight_unit:)
         package = shipment.to_package
         weight = package.contents.sum(BigDecimal("0")) do |content|
           BigDecimal(content.variant.weight.to_s) * content.quantity
         end
-        [{weight: weight, copies: 1, contents: "Merchandise"}]
+        [{weight: Units.weight_to_kg(weight, weight_unit), copies: 1, contents: "Merchandise"}]
       rescue ArgumentError
         raise ValidationError, "shipment contains an invalid weight"
       end

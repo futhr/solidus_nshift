@@ -4,33 +4,23 @@ module SolidusNshift
   module ShipmentData
     class ShipmentLocator
       def call(response, reference:)
-        values = if response.is_a?(Array)
-          response
-        else
-          response["shipments"] || response["items"] || response["results"] || response.dig("data", "shipments") || []
-        end
-        raise MalformedResponseError, "nShift Shipment Data search must contain an array" unless values.is_a?(Array)
+        raise MalformedResponseError, "nShift Shipment Data search must contain an array" unless response.is_a?(Array)
 
-        match = values.find do |value|
-          next false unless value.is_a?(Hash)
+        matches = response.select do |value|
+          raise MalformedResponseError, "nShift Shipment Data result must be an object" unless value.is_a?(Hash)
 
-          references(value).include?(reference.to_s)
+          [value["orderNumber"], value["additionalReference"]].compact.map(&:to_s).include?(reference.to_s)
         end
+        if matches.length > 1
+          raise ShipmentConflictError, "nShift Shipment Data found multiple shipments for the merchant reference"
+        end
+        match = matches.first
         return unless match
 
-        uuid = match["shipmentUuid"] || match["uuid"] || match["id"]
+        uuid = match["uuid"]
         raise MalformedResponseError, "nShift Shipment Data result omitted shipment UUID" if uuid.to_s.empty?
 
         uuid.to_s
-      end
-
-      private
-
-      def references(value)
-        [
-          value["orderNo"], value["orderNumber"], value["reference"],
-          value["externalShipmentReference"], value.dig("shipment", "orderNo")
-        ].compact.map(&:to_s)
       end
     end
   end

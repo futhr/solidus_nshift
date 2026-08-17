@@ -2,6 +2,9 @@
 
 require "solidus_core"
 require "solidus_support"
+require "solidus_nshift/shipment_extension"
+require "solidus_nshift/shipping_rate_extension"
+require "solidus_nshift/solidus/rate_estimator_extension"
 
 module SolidusNshift
   class Engine < Rails::Engine
@@ -14,14 +17,12 @@ module SolidusNshift
       app.config.spree.calculators.shipping_methods << "Spree::Calculator::Shipping::NshiftCheckout"
     end
 
-    initializer "solidus_nshift.install_estimator", after: "spree.core.environment" do
-      Spree::Config.stock.estimator_class = "SolidusNshift::Solidus::RateEstimator"
-    end
-
     initializer "solidus_nshift.filter_parameters" do |app|
       app.config.filter_parameters += %i[
         client_secret api_key api_key_id api_key_secret authorization
         checkout_client_secret delivery_api_key_id delivery_api_key_secret tracking_client_secret
+        delivery_sender_name delivery_sender_address1 delivery_sender_address2 delivery_sender_zipcode
+        delivery_sender_city delivery_sender_country delivery_sender_phone delivery_sender_email
       ]
     end
 
@@ -48,11 +49,16 @@ module SolidusNshift
       unless Spree::Shipment < SolidusNshift::ShipmentExtension
         Spree::Shipment.include(SolidusNshift::ShipmentExtension)
       end
+
+      estimator_class = Spree::Config.stock.estimator_class
+      estimator_class = estimator_class.constantize if estimator_class.is_a?(String)
+      extension = SolidusNshift::Solidus::RateEstimatorExtension
+      estimator_class.prepend(extension) unless estimator_class < extension
     end
 
     initializer "solidus_nshift.core.pub_sub", after: "spree.core.pub_sub" do |app|
       app.reloader.to_prepare do
-        SolidusNshift::OrderFinalizedSubscriber.new.subscribe_to(Spree::Bus)
+        SolidusNshift::OrderFinalizedSubscriber.install(Spree::Bus)
       end
     end
   end

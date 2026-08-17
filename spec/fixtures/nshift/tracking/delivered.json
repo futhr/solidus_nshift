@@ -1,1 +1,1 @@
-{"events": [{"eventId": "evt-2", "eventCode": "DELIVERED", "eventTime": "2026-08-17T14:15:00+02:00", "description": "Delivered"}]}
+{"events": [{"uuid": "evt-2", "normalizedStatusId": 3000, "normalizedStatusName": "Delivered", "date": "2026-08-17T14:15:00+02:00", "configurationName": "Delivered"}]}

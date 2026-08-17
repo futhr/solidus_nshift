@@ -23,6 +23,15 @@ RSpec.describe SolidusNshift::Admin::ConnectionsController, type: :controller do
     expect(response.body).not_to include("checkout-secret", "delivery-secret")
   end
 
+  it "authorizes connection administration and the requested action" do
+    expect(controller).to receive(:authorize!).with(:admin, SolidusNshift::Connection).ordered
+    expect(controller).to receive(:authorize!).with(:index, SolidusNshift::Connection).ordered
+
+    get :index
+
+    expect(response).to have_http_status(:ok)
+  end
+
   it "retains encrypted credentials when blank secret fields are submitted" do
     data = create_nshift_shipment
     connection = data[:connection]

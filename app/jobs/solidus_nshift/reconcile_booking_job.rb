@@ -8,6 +8,7 @@ module SolidusNshift
     retry_on RateLimitError, wait: 1.minute, attempts: 3
     retry_on TransportError, wait: :polynomially_longer, attempts: 5
     retry_on ProviderUnavailableError, wait: :polynomially_longer, attempts: 5
+    retry_on ActiveRecord::StaleObjectError, ActiveRecord::Deadlocked, wait: 1.second, attempts: 3
 
     def perform(fulfillment_id)
       ReconcileBooking.new(fulfillment: Fulfillment.find(fulfillment_id)).call

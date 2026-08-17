@@ -17,7 +17,12 @@ SolidusDevSupport::TestingSupport::Factories.load_for(SolidusNshift::Engine)
 Dir[File.expand_path("support/**/*.rb", __dir__)].sort.each { |path| require path }
 
 RSpec.configure do |config|
+  # SolidusDevSupport selects truncation for `:js` examples. Database concurrency
+  # specs need the same strategy so worker connections can see committed setup.
+  config.define_derived_metadata(:concurrency) { |metadata| metadata[:js] = true }
+
   config.before do
     SolidusNshift.reset_configuration!
+    SolidusNshift.configuration.cache = SolidusNshift::MemoryCache.new(clock: SolidusNshift.configuration.clock)
   end
 end

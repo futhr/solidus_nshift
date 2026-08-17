@@ -6,7 +6,7 @@
     "orderNo": "solidus-store-h124-1",
     "reference": "solidus-store-h124-1",
     "serviceId": "P19",
-    "normalShipment": true,
+    "normalShipment": false,
     "returnShipment": false,
     "consolidated": false,
     "parcels": [

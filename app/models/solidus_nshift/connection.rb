@@ -17,6 +17,16 @@ module SolidusNshift
     preference :delivery_api_key_secret, :encrypted_string
     preference :delivery_developer_id, :string
     preference :delivery_sender_quick_id, :string
+    preference :delivery_sender_name, :string
+    preference :delivery_sender_address1, :string
+    preference :delivery_sender_address2, :string
+    preference :delivery_sender_zipcode, :string
+    preference :delivery_sender_city, :string
+    preference :delivery_sender_country, :string
+    preference :delivery_sender_phone, :string
+    preference :delivery_sender_email, :string
+    preference :delivery_label_format, :string, default: "pdf"
+    preference :delivery_label_media, :string, default: "laser-a4"
     preference :delivery_test_mode, :boolean, default: true
     preference :tracking_client_id, :string
     preference :tracking_client_secret, :encrypted_string
@@ -93,7 +103,19 @@ module SolidusNshift
     end
 
     def delivery_configuration
-      require_preferences(:delivery_api_key_id, :delivery_api_key_secret, :delivery_developer_id, :delivery_sender_quick_id)
+      require_preferences(
+        :delivery_api_key_id, :delivery_api_key_secret, :delivery_developer_id,
+        :delivery_sender_quick_id, :delivery_sender_name, :delivery_sender_address1,
+        :delivery_sender_zipcode, :delivery_sender_city, :delivery_sender_country,
+        :delivery_label_media
+      )
+      if preferred_delivery_sender_country.present? &&
+          !preferred_delivery_sender_country.match?(/\A[A-Z]{2}\z/)
+        errors.add(:preferred_delivery_sender_country, "must be a two-letter uppercase country code")
+      end
+      unless Document::FORMATS.include?(preferred_delivery_label_format)
+        errors.add(:preferred_delivery_label_format, "must be PDF or ZPL")
+      end
     end
 
     def tracking_configuration

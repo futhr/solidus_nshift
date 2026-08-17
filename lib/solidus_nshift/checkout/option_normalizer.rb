@@ -4,20 +4,25 @@ module SolidusNshift
   module Checkout
     class OptionNormalizer
       def call(response, session_id:, currency:)
-        values = if response.is_a?(Array)
-          response
-        else
-          response["shippingOptions"] || response["options"] || response["items"] || []
-        end
+        raise MalformedResponseError, "nShift shipping-options response must be an object" unless response.is_a?(Hash)
+
+        values = response["options"]
         raise MalformedResponseError, "nShift shipping options must be an array" unless values.is_a?(Array)
 
-        values.map do |value|
+        options = values.filter_map do |value|
           raise MalformedResponseError, "nShift shipping option must be an object" unless value.is_a?(Hash)
+          if value.key?("valid") && ![true, false].include?(value["valid"])
+            raise MalformedResponseError, "nShift shipping option valid flag must be boolean"
+          end
+          next if value["valid"] == false
 
           ShippingOption.from_hash(value, session_id:, default_currency: currency)
-        end.group_by(&:external_id).values.map do |duplicates|
-          duplicates.min_by { |option| [option.price, option.service_code.to_s, option.label] }
-        end.sort_by { |option| [option.price, option.label, option.external_id.to_s] }
+        end
+        if options.map(&:external_id).uniq.length != options.length
+          raise MalformedResponseError, "nShift shipping options contained duplicate optionId values"
+        end
+
+        options.sort_by { |option| [option.price, option.label, option.external_id.to_s] }
       end
     end
   end

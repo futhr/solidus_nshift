@@ -11,17 +11,13 @@ module SolidusNshift
         "created" => 1,
         "in_transit" => 2,
         "out_for_delivery" => 3,
-        "exception" => 3,
+        "exception" => 2,
         "delivered" => 4,
         "canceled" => 4
       }.freeze
 
       def terminal?
         TERMINAL.include?(status)
-      end
-
-      def precedence
-        PRECEDENCE.fetch(status, 0)
       end
     end
   end

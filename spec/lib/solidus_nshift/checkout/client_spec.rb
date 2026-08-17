@@ -24,12 +24,14 @@ RSpec.describe SolidusNshift::Checkout::Client do
     session = client.create_session(connection_id: "connection-1", attributes: {})
 
     expect(session.id).to eq("session-2026-0001")
+    expect(session.checkout_configuration_id).to eq("checkout-configuration-2026-0001")
     expect(session.expires_at).to eq(Time.utc(2026, 8, 16, 14))
+    expect(transport.requests.first[:url]).to start_with("https://api.nshiftportal.com/checkout/")
     expect(transport.requests.first[:url]).to end_with("/options/v1/sessions/connection-1")
     expect(JSON.parse(transport.requests.first[:body])).to eq({})
   end
 
-  it "normalizes and deterministically deduplicates home delivery options" do
+  it "normalizes home delivery options" do
     transport = RecordedTransport.new(RecordedTransport.json(200, fixture_json("checkout/shipping_options_home.json")))
     client = described_class.new(token_provider: tokens, transport:)
 
@@ -39,6 +41,35 @@ RSpec.describe SolidusNshift::Checkout::Client do
     expect(options.first.external_id).to eq("home-standard")
     expect(options.first.price).to eq(BigDecimal("89.5"))
     expect(options.first.service_code).to eq("P19")
+  end
+
+  it "rejects duplicate opaque option IDs and malformed validity flags" do
+    option = fixture_json("checkout/shipping_options_home.json").fetch("options").first
+    duplicate_transport = RecordedTransport.new(
+      RecordedTransport.json(200, {"options" => [option, option.merge("price" => 99)]})
+    )
+    flag_transport = RecordedTransport.new(
+      RecordedTransport.json(200, {"options" => [option.merge("valid" => "false")]})
+    )
+
+    expect do
+      described_class.new(token_provider: tokens, transport: duplicate_transport).shipping_options(
+        session_id: "session-1", payload: {}, currency: "SEK"
+      )
+    end.to raise_error(SolidusNshift::MalformedResponseError, /duplicate optionId/)
+    expect do
+      described_class.new(token_provider: tokens, transport: flag_transport).shipping_options(
+        session_id: "session-1", payload: {}, currency: "SEK"
+      )
+    end.to raise_error(SolidusNshift::MalformedResponseError, /must be boolean/)
+  end
+
+  it "requires the documented checkout configuration ID in a session response" do
+    transport = RecordedTransport.new(RecordedTransport.json(201, {"sessionId" => "session-1"}))
+
+    expect do
+      described_class.new(token_provider: tokens, transport:).create_session(connection_id: "connection-1")
+    end.to raise_error(SolidusNshift::MalformedResponseError, /checkoutConfigurationId/)
   end
 
   it "normalizes pickup point identity separately from display data" do
@@ -58,6 +89,14 @@ RSpec.describe SolidusNshift::Checkout::Client do
     expect(client.shipping_options(session_id: "session-1", payload: {}, currency: "SEK")).to eq([])
   end
 
+  it "rejects legacy or guessed shipping-option wrappers" do
+    transport = RecordedTransport.new(RecordedTransport.json(200, {"shippingOptions" => []}))
+    client = described_class.new(token_provider: tokens, transport:)
+
+    expect { client.shipping_options(session_id: "session-1", payload: {}, currency: "SEK") }
+      .to raise_error(SolidusNshift::MalformedResponseError, /array/)
+  end
+
   it "invalidates once and retries after an unauthorized response" do
     transport = RecordedTransport.new(
       RecordedTransport.json(401, fixture_json("errors/unauthorized.json")),
@@ -69,6 +108,26 @@ RSpec.describe SolidusNshift::Checkout::Client do
 
     expect(tokens.invalidations).to eq(1)
     expect(transport.requests.length).to eq(2)
+  end
+
+  it "retries an unauthorized response even when its body is not JSON" do
+    transport = RecordedTransport.new(
+      RecordedTransport.binary(401, "unauthorized", content_type: "text/plain"),
+      RecordedTransport.json(200, fixture_json("checkout/no_options.json"))
+    )
+    client = described_class.new(token_provider: tokens, transport:)
+
+    expect(client.shipping_options(session_id: "session-1", payload: {}, currency: "SEK")).to eq([])
+    expect(tokens.invalidations).to eq(1)
+    expect(transport.requests.length).to eq(2)
+  end
+
+  it "classifies a non-JSON read outage as provider unavailability" do
+    transport = RecordedTransport.new(RecordedTransport.binary(503, "upstream unavailable", content_type: "text/plain"))
+    client = described_class.new(token_provider: tokens, transport:)
+
+    expect { client.shipping_options(session_id: "session-1", payload: {}, currency: "SEK") }
+      .to raise_error(SolidusNshift::ProviderUnavailableError)
   end
 
   it "maps an expired session to a stale-session error" do

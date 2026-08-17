@@ -63,4 +63,23 @@ RSpec.describe SolidusNshift::Checkout::PackageRequestBuilder do
     expect { described_class.new(**attributes.merge(locale: "sv-SE")) }.to raise_error(SolidusNshift::ValidationError)
     expect { described_class.new(**attributes.merge(cart_price: "-1")) }.to raise_error(SolidusNshift::ValidationError)
   end
+
+  it "rejects invalid item shapes, quantities, weights, and dimensions" do
+    [nil, {}, "items"].each do |items|
+      expect { described_class.new(**attributes.merge(items:)) }.to raise_error(SolidusNshift::ValidationError)
+    end
+
+    [0, -1, 1.5, "2.0", nil].each do |quantity|
+      items = [attributes[:items].first.merge(quantity:)]
+      expect { described_class.new(**attributes.merge(items:)) }.to raise_error(SolidusNshift::ValidationError)
+    end
+
+    expect { described_class.new(**attributes.merge(items: [{quantity: 1, weight: -1}])) }
+      .to raise_error(SolidusNshift::ValidationError)
+    expect { described_class.new(**attributes.merge(items: [{quantity: 1, weight: 0}])).call }
+      .to raise_error(SolidusNshift::ValidationError, /weight must be positive/)
+    invalid_dimensions = [attributes[:items].first.merge(length: -1)]
+    expect { described_class.new(**attributes.merge(items: invalid_dimensions)) }
+      .to raise_error(SolidusNshift::ValidationError)
+  end
 end

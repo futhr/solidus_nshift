@@ -1,1 +1,1 @@
-{"events": [{"eventId": "evt-3", "eventCode": "DEVIATION", "eventTime": "2026-08-16T11:00:00Z", "description": "Delivery delayed"}]}
+{"events": [{"uuid": "evt-3", "normalizedStatusId": 5002, "normalizedStatusName": "Delayed", "date": "2026-08-16T11:00:00Z", "configurationName": "Delivery delayed"}]}

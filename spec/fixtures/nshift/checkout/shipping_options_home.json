@@ -1,21 +1,14 @@
 {
-  "shippingOptions": [
+  "options": [
     {
+      "valid": true,
       "optionId": "home-standard",
       "sourceSystemCarrierId": "POSTNORD",
       "sourceSystemProductId": "P19",
       "name": "Home delivery",
       "price": 89.50,
-      "currencyCode": "SEK",
-      "deliveryTime": "1-2 business days"
-    },
-    {
-      "optionId": "home-standard",
-      "sourceSystemCarrierId": "POSTNORD",
-      "sourceSystemProductId": "P19",
-      "name": "Home delivery duplicate",
-      "price": 99.00,
-      "currencyCode": "SEK"
+      "carrierProductSourceSystem": "DELIVERY",
+      "deliveryTime": {"description": "1-2 business days"}
     }
   ]
 }

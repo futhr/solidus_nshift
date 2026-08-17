@@ -14,7 +14,10 @@ module SolidusNshift
       @mutex.synchronize do
         entry = @entries[key]
         return unless entry
-        return @entries.delete(key) && nil if entry.expires_at && entry.expires_at <= @clock.call
+        if entry.expires_at && entry.expires_at <= @clock.call
+          @entries.delete(key)
+          return
+        end
 
         entry.value
       end

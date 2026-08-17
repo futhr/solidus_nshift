@@ -52,11 +52,11 @@ RSpec.describe SolidusNshift::BookingService do
     fulfillment = described_class.new(shipment: data[:shipment]).call
 
     expect(checkout_payload).to include(
-      sessionId: "session-1", shippingOptionId: "pickup-option", orderId: fulfillment.merchant_reference
+      sessionId: "session-1", optionId: "pickup-option", orderId: fulfillment.merchant_reference
     )
-    expect(checkout_payload[:pickupPoint]).to eq(id: "SE-10001")
-    expect(delivery_payload).to include(orderNo: fulfillment.merchant_reference)
-    expect(delivery_payload[:agent]).to include(quickId: "SE-10001")
+    expect(checkout_payload[:pickupPointId]).to eq("SE-10001")
+    expect(delivery_payload[:shipment]).to include(orderNo: fulfillment.merchant_reference)
+    expect(delivery_payload.dig(:shipment, :agent)).to include(quickId: "SE-10001")
   end
 
   it "stops safely and schedules reconciliation after an ambiguous Delivery timeout" do
@@ -72,6 +72,32 @@ RSpec.describe SolidusNshift::BookingService do
 
     described_class.new(shipment: data[:shipment]).call
     expect(delivery_client).to have_received(:create_shipment).once
+  end
+
+  it "keeps a successful booking committed when tracking enqueueing fails" do
+    data = create_nshift_shipment(tracking_enabled: true)
+    allow(data[:connection]).to receive(:checkout_client).and_return(checkout_client)
+    allow(data[:connection]).to receive(:delivery_client).and_return(delivery_client)
+    job_class = class_double(SolidusNshift::SyncTrackingJob)
+    allow(job_class).to receive(:perform_later).and_raise(ActiveJob::EnqueueError, "queue unavailable")
+    SolidusNshift.configuration.sync_tracking_job = -> { job_class }
+
+    fulfillment = described_class.new(shipment: data[:shipment]).call
+
+    expect(fulfillment.reload).to have_attributes(state: "booked", provider_shipment_id: "10252317")
+    expect(fulfillment.operations.find_by(kind: "delivery_booking").status).to eq("succeeded")
+    expect(SolidusNshift::ReconcileBookingJob).not_to have_been_enqueued
+  end
+
+  it "does not retry forever when a merchant reference belongs to another shipment" do
+    allow(SolidusNshift::Fulfillment).to receive(:find_or_create_by!)
+      .and_raise(ActiveRecord::RecordNotUnique, "duplicate reference")
+    allow(SolidusNshift::Fulfillment).to receive(:find_by).and_return(nil)
+
+    expect { described_class.new(shipment: data[:shipment]).call }
+      .to raise_error(SolidusNshift::ShipmentConflictError, /different shipment/)
+    expect(SolidusNshift::Fulfillment).to have_received(:find_or_create_by!).once
+    expect(checkout_client).not_to have_received(:create_partial_shipment)
   end
 
   it "never proceeds to Delivery if the Checkout mutation has an unknown outcome" do
@@ -97,11 +123,54 @@ RSpec.describe SolidusNshift::BookingService do
     expect(delivery_client).not_to have_received(:create_shipment)
   end
 
+  it "permits a safe retry after a definitive Delivery rejection" do
+    attempts = 0
+    allow(delivery_client).to receive(:create_shipment) do
+      attempts += 1
+      if attempts == 1
+        raise SolidusNshift::ValidationError.new("invalid credentials", provider_code: "CONFIG")
+      end
+
+      provider_shipment
+    end
+    allow_any_instance_of(SolidusNshift::Connection).to receive(:delivery_client).and_return(delivery_client)
+
+    first_result = described_class.new(shipment: data[:shipment]).call
+    data[:connection].update!(preferred_delivery_developer_id: "corrected-developer-id")
+    data[:selection].update!(session_expires_at: 1.minute.ago)
+    second_result = described_class.new(shipment: data[:shipment]).call
+
+    expect(first_result.state).to eq("rejected")
+    expect(second_result.reload.state).to eq("booked")
+    expect(second_result.operations.where(kind: "delivery_booking").order(:revision).pluck(:revision, :status, :attempts))
+      .to eq([
+        [1, "rejected", 1],
+        [2, "succeeded", 1]
+      ])
+    expect(second_result.latest_operation("delivery_booking")).to have_attributes(
+      status: "succeeded", revision: 2
+    )
+  end
+
   it "rejects stale selection context before any provider mutation" do
     data[:order].update!(ship_address: create(:address, country_iso_code: "SE", zipcode: "411 01"))
 
     expect { described_class.new(shipment: data[:shipment]).call }
       .to raise_error(SolidusNshift::StaleSessionError)
     expect(checkout_client).not_to have_received(:create_partial_shipment)
+  end
+
+  it "does not schedule reconciliation when local Delivery payload construction fails" do
+    allow(SolidusNshift.configuration).to receive(:parcel_builder)
+      .and_return(->(_shipment) { raise "merchant parcel builder failed" })
+
+    expect { described_class.new(shipment: data[:shipment]).call }
+      .to raise_error(RuntimeError, "merchant parcel builder failed")
+
+    fulfillment = data[:shipment].reload.nshift_fulfillment
+    expect(fulfillment).to have_attributes(state: "partial_created", checkout_partial_shipment_id: "partial-1")
+    expect(fulfillment.operations.pluck(:kind, :status)).to eq([["checkout_partial", "succeeded"]])
+    expect(delivery_client).not_to have_received(:create_shipment)
+    expect(SolidusNshift::ReconcileBookingJob).not_to have_been_enqueued
   end
 end

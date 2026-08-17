@@ -9,9 +9,10 @@ module SolidusNshift
 
     belongs_to :fulfillment, class_name: "SolidusNshift::Fulfillment", inverse_of: :operations
 
-    validates :kind, inclusion: {in: KINDS}, uniqueness: {scope: :fulfillment_id}
+    validates :kind, inclusion: {in: KINDS}, uniqueness: {scope: %i[fulfillment_id revision]}
     validates :status, inclusion: {in: STATUSES}
     validates :request_fingerprint, format: {with: /\A[0-9a-f]{64}\z/}
+    validates :revision, numericality: {only_integer: true, greater_than: 0}
 
     def claim!
       with_lock do
@@ -25,6 +26,7 @@ module SolidusNshift
           finished_at: nil,
           error_class: nil,
           error_message: nil,
+          provider_request_id: nil,
           provider_code: nil
         )
       end

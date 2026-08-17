@@ -46,6 +46,15 @@ RSpec.describe SolidusNshift::OAuth::TokenProvider do
     expect(transport.requests.length).to eq(1)
   end
 
+  it "replaces a malformed cached value" do
+    key = "solidus_nshift:oauth:default:#{Digest::SHA256.hexdigest("checkout-client")}"
+    cache.write(key, "invalid")
+    transport = RecordedTransport.new(token_response)
+
+    expect(provider(transport:).token.value).to eq("sanitized-checkout-token")
+    expect(transport.requests.length).to eq(1)
+  end
+
   it "uses bounded backoff for transient failures" do
     waits = []
     transport = RecordedTransport.new(
@@ -64,6 +73,16 @@ RSpec.describe SolidusNshift::OAuth::TokenProvider do
 
     expect(instance.token.value).to eq("sanitized-checkout-token")
     expect(waits).to eq([0.25, 0.5])
+  end
+
+  it "retries a non-JSON provider outage" do
+    transport = RecordedTransport.new(
+      RecordedTransport.binary(503, "service unavailable", content_type: "text/plain"),
+      token_response
+    )
+
+    expect(provider(transport:).token.value).to eq("sanitized-checkout-token")
+    expect(transport.requests.length).to eq(2)
   end
 
   it "classifies rejected credentials without disclosing them" do

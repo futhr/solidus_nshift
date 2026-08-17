@@ -11,7 +11,7 @@ module SolidusNshift
       return unresolved_checkout unless checkout_resolved?
       return reconcile_cancel if cancel_unresolved?
 
-      operation = @fulfillment.operations.find_by(kind: "delivery_booking")
+      operation = @fulfillment.latest_operation("delivery_booking")
       return @fulfillment unless operation && %w[in_progress unknown].include?(operation.status)
 
       shipment = @fulfillment.connection.delivery_client.find_shipment(reference: @fulfillment.merchant_reference)
@@ -29,7 +29,7 @@ module SolidusNshift
     private
 
     def checkout_resolved?
-      operation = @fulfillment.operations.find_by(kind: "checkout_partial")
+      operation = @fulfillment.latest_operation("checkout_partial")
       !operation || operation.status == "succeeded"
     end
 
@@ -43,12 +43,12 @@ module SolidusNshift
     end
 
     def cancel_unresolved?
-      operation = @fulfillment.operations.find_by(kind: "delivery_cancel")
+      operation = @fulfillment.latest_operation("delivery_cancel")
       operation && %w[in_progress unknown].include?(operation.status)
     end
 
     def reconcile_cancel
-      operation = @fulfillment.operations.find_by!(kind: "delivery_cancel")
+      operation = @fulfillment.latest_operation("delivery_cancel")
       shipment = @fulfillment.connection.delivery_client.find_shipment(reference: @fulfillment.merchant_reference)
       if shipment && shipment.status.to_s.casecmp?("canceled")
         Fulfillment.transaction do

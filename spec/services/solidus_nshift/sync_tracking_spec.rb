@@ -30,7 +30,7 @@ RSpec.describe SolidusNshift::SyncTracking do
   before do
     allow(data[:connection]).to receive(:shipment_data_client).and_return(client)
     allow(client).to receive(:find_by_order_number).and_return(
-      "shipments" => [{"orderNo" => reference, "shipmentUuid" => "shipment-uuid-1"}]
+      [{"orderNumber" => reference, "uuid" => "shipment-uuid-1"}]
     )
     allow(client).to receive(:events).and_return([in_transit])
   end
@@ -56,5 +56,18 @@ RSpec.describe SolidusNshift::SyncTracking do
 
     expect(fulfillment.reload.tracking_status).to eq("delivered")
     expect(fulfillment.tracking_events.count).to eq(2)
+  end
+
+  it "uses a bounded historical search window for a late first sync" do
+    fulfillment.update_columns(created_at: 2.months.ago, shipment_data_uuid: nil)
+    allow(client).to receive(:find_by_order_number).and_return(
+      [{"orderNumber" => reference, "uuid" => "shipment-uuid-1"}]
+    )
+
+    described_class.new(fulfillment:).call
+
+    expect(client).to have_received(:find_by_order_number) do |start_time:, end_time:, **|
+      expect(end_time - start_time).to be <= 31.days
+    end
   end
 end

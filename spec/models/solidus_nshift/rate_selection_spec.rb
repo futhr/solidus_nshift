@@ -69,4 +69,13 @@ RSpec.describe SolidusNshift::RateSelection, type: :model do
     expect(selection).not_to be_valid_for(digest: "b" * 64, at: Time.current)
     expect(selection).not_to be_valid_for(digest: "a" * 64, at: 4.hours.from_now)
   end
+
+  it "rejects malformed pickup point containers" do
+    selection.pickup_points = {id: "SE-123"}
+    expect(selection).not_to be_valid
+    expect(selection.errors[:pickup_points]).to include(/array/)
+
+    selection.pickup_points = [{}]
+    expect(selection).not_to be_valid
+  end
 end

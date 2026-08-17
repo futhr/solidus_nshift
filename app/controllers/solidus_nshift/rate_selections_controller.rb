@@ -11,12 +11,18 @@ module SolidusNshift
       selection = RateSelection.includes(shipping_rate: {shipment: :order}).find(params[:id])
       order = selection.shipping_rate.shipment.order
       authorize! :update, order, order_token
-      raise ValidationError, "completed orders cannot change nShift pickup points" if order.completed?
-      unless selection.shipping_rate.selected?
-        raise ValidationError, "nShift pickup point belongs to an unselected shipping rate"
+      order.with_lock do
+        order.reload
+        selection.shipping_rate.reload
+        raise ValidationError, "completed orders cannot change nShift pickup points" if order.completed?
+        unless selection.shipping_rate.selected?
+          raise ValidationError, "nShift pickup point belongs to an unselected shipping rate"
+        end
+
+        selection.select_pickup_point!(params.require(:pickup_point_id))
+        SelectionValidator.new(shipment: selection.shipping_rate.shipment).call
       end
 
-      selection.select_pickup_point!(params.require(:pickup_point_id))
       render json: {
         id: selection.id,
         pickup_point_id: selection.selected_pickup_point_id,
@@ -35,7 +41,7 @@ module SolidusNshift
     end
 
     def unprocessable(error)
-      render json: {error: error.message}, status: :unprocessable_entity
+      render json: {error: error.message}, status: :unprocessable_content
     end
   end
 end

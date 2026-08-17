@@ -5,7 +5,6 @@ module SolidusNshift
     STATES = %w[
       unbooked booking partial_created booked reconciliation_pending rejected canceled
     ].freeze
-    TERMINAL_STATES = %w[booked canceled].freeze
 
     self.table_name = "solidus_nshift_fulfillments"
 
@@ -18,7 +17,9 @@ module SolidusNshift
 
     validates :merchant_reference, presence: true, uniqueness: {scope: :connection_id}
     validates :shipment_id, uniqueness: true
+    validates :rate_selection_id, uniqueness: true
     validates :state, inclusion: {in: STATES}
+    validates :tracking_status, inclusion: {in: TrackingEvent::STATUSES}, allow_nil: true
 
     scope :requiring_reconciliation, -> { where(state: "reconciliation_pending") }
 
@@ -26,8 +27,8 @@ module SolidusNshift
       state == "booked"
     end
 
-    def terminal?
-      TERMINAL_STATES.include?(state)
+    def latest_operation(kind)
+      operations.where(kind:).order(revision: :desc).first
     end
 
     def record_error!(error, state: self.state)

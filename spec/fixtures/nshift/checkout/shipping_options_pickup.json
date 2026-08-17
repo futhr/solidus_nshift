@@ -1,12 +1,13 @@
 {
-  "shippingOptions": [
+  "options": [
     {
+      "valid": true,
       "optionId": "pickup-standard",
       "sourceSystemCarrierId": "POSTNORD",
       "sourceSystemProductId": "P19",
       "name": "Collect nearby",
-      "price": {"value": 59.0},
-      "currencyCode": "SEK",
+      "price": 59.0,
+      "carrierProductSourceSystem": "DELIVERY",
       "pickupPoints": [
         {
           "pickupPointId": "SE-10001",

@@ -19,31 +19,24 @@ module SolidusNshift
             tracking_number: @shipment.tracking_number
           }.merge(@fulfillment.clear_error_attributes)
         )
-        persist_documents(@shipment.documents)
-        @fulfillment.shipment.update_column(:tracking, @shipment.tracking_number) if @shipment.tracking_number.present?
+        PersistDocuments.new(fulfillment: @fulfillment, documents: @shipment.documents).call
+        @fulfillment.shipment.update!(tracking: @shipment.tracking_number) if @shipment.tracking_number.present?
       end
-      enqueue_tracking
+      enqueue_tracking_safely
       @fulfillment
     end
 
     private
 
-    def persist_documents(documents)
-      documents.each do |provider_document|
-        document = @fulfillment.documents.find_or_initialize_by(provider_document_id: provider_document.id)
-        document.assign_attributes(
-          description: provider_document.description,
-          format: provider_document.format,
-          content_type: provider_document.content_type
-        )
-        document.save!
-      end
-    end
-
-    def enqueue_tracking
+    def enqueue_tracking_safely
       return unless @fulfillment.connection.tracking_enabled?
 
-      SolidusNshift.configuration.sync_tracking_job.call.perform_later(@fulfillment.id)
+      JobEnqueuer.call(
+        job_class: SolidusNshift.configuration.sync_tracking_job.call,
+        arguments: [@fulfillment.id],
+        operation: "enqueue_tracking",
+        metadata: {fulfillment_id: @fulfillment.id, connection_id: @fulfillment.connection_id}
+      )
     end
   end
 end

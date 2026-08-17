@@ -4,6 +4,10 @@ module SolidusNshift
   class RateSelection < ::Spree::Base
     self.table_name = "solidus_nshift_rate_selections"
 
+    attribute :pickup_points, default: -> { [] }
+    attribute :selected_pickup_point, default: -> { {} }
+    attribute :provider_metadata, default: -> { {} }
+
     belongs_to :shipping_rate, class_name: "Spree::ShippingRate", inverse_of: :nshift_selection
     belongs_to :connection, class_name: "SolidusNshift::Connection"
     has_one :fulfillment, class_name: "SolidusNshift::Fulfillment", dependent: :restrict_with_error
@@ -13,6 +17,7 @@ module SolidusNshift
     validates :currency, format: {with: /\A[A-Z]{3}\z/}
     validates :amount, numericality: {greater_than_or_equal_to: 0}
     validates :shipping_rate_id, uniqueness: true
+    validate :pickup_points_are_valid
     validate :selected_point_was_offered
 
     def select_pickup_point!(pickup_point_id)
@@ -38,7 +43,16 @@ module SolidusNshift
     private
 
     def normalized_pickup_points
-      Array(pickup_points).map(&:stringify_keys)
+      return [] unless pickup_points.is_a?(Array)
+
+      pickup_points.filter_map { |point| point.stringify_keys if point.is_a?(Hash) }
+    end
+
+    def pickup_points_are_valid
+      valid = pickup_points.is_a?(Array) && pickup_points.all? do |point|
+        point.is_a?(Hash) && point.stringify_keys["id"].present?
+      end
+      errors.add(:pickup_points, "must be an array of points with IDs") unless valid
     end
 
     def selected_point_was_offered

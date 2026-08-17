@@ -40,6 +40,20 @@
     <%= render "secret_field", form:, name: :preferred_delivery_api_key_secret, label: "API key secret" %>
     <%= render "preference_field", form:, name: :preferred_delivery_developer_id, label: "Developer ID" %>
     <%= render "preference_field", form:, name: :preferred_delivery_sender_quick_id, label: "Sender Quick ID" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_name, label: "Sender name" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_address1, label: "Sender address line 1" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_address2, label: "Sender address line 2 (optional)" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_zipcode, label: "Sender postal code" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_city, label: "Sender city" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_country, label: "Sender country (ISO 3166-1 alpha-2)" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_phone, label: "Sender phone (optional)" %>
+    <%= render "preference_field", form:, name: :preferred_delivery_sender_email, label: "Sender email (optional)" %>
+    <div class="form-group">
+      <%= form.label :preferred_delivery_label_format, "Label format" %>
+      <%= form.select :preferred_delivery_label_format, [["PDF", "pdf"], ["ZPL", "zpl"]], {}, class: "form-control" %>
+    </div>
+    <%= render "preference_field", form:, name: :preferred_delivery_label_media,
+      label: "nShift print media (for example laser-a4 or thermo-250)" %>
     <div class="form-check">
       <%= form.check_box :preferred_delivery_test_mode, class: "form-check-input" %>
       <%= form.label :preferred_delivery_test_mode, "Print TEST labels and disable EDI forwarding", class: "form-check-label" %>

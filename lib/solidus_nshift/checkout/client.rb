@@ -27,10 +27,18 @@ module SolidusNshift
           "/options/v1/sessions/#{identifier!(connection_id, "checkout connection ID")}",
           payload: attributes
         )
-        session_id = body["sessionId"] || body["id"] || body.dig("session", "id")
+        session_id = body["sessionId"]
         raise MalformedResponseError, "nShift session response omitted sessionId" unless IDENTIFIER.match?(session_id.to_s)
+        configuration_id = body["checkoutConfigurationId"]
+        unless IDENTIFIER.match?(configuration_id.to_s)
+          raise MalformedResponseError, "nShift session response omitted checkoutConfigurationId"
+        end
 
-        Session.new(id: session_id.to_s, expires_at: @clock.call + 4 * 60 * 60, raw_reference: body["reference"])
+        Session.new(
+          id: session_id.to_s,
+          expires_at: @clock.call + 4 * 60 * 60,
+          checkout_configuration_id: configuration_id.to_s
+        )
       end
 
       def shipping_options(session_id:, payload:, currency:)
@@ -71,12 +79,12 @@ module SolidusNshift
             body: JSON.generate(payload)
           )
         end
-        body = parse_json(response, allow_array: true, allow_empty: mutation)
         if response.status == 401 && !retried
           @token_provider.invalidate!
           return request_json(method, path, payload:, mutation:, retried: true)
         end
-        raise_for_status!(response, body, mutation:)
+        raise_for_response_status!(response, mutation:)
+        body = parse_json(response, allow_empty: mutation)
         log(path, "success", response)
         body
       end
@@ -94,7 +102,8 @@ module SolidusNshift
 
       def validate_base_url!
         uri = URI.parse(@base_url)
-        raise ConfigurationError, "nShift Checkout base URL must use HTTPS" unless uri.is_a?(URI::HTTPS)
+        valid = uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
+        raise ConfigurationError, "nShift Checkout base URL must be an absolute HTTPS URL" unless valid
       rescue URI::InvalidURIError
         raise ConfigurationError, "nShift Checkout base URL is invalid"
       end

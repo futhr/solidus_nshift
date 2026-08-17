@@ -9,21 +9,23 @@ module SolidusNshift
 
     class PackageRequestBuilder
       def initialize(receiver:, items:, currency:, locale:, cart_price:, weight_unit:, dimension_unit:, context: {})
-        @receiver = receiver.transform_keys(&:to_sym)
-        @items = items
+        @weight_unit = weight_unit
+        @dimension_unit = dimension_unit
+        @receiver = normalized_hash(receiver, "receiver")
+        @items = normalize_items(items)
         @currency = currency.to_s.upcase
         @locale = locale.to_s.downcase
         @cart_price = decimal!(cart_price, "cart price")
-        @weight_unit = weight_unit
-        @dimension_unit = dimension_unit
         @context = context
         validate!
       end
 
       def call
         package_weight = @items.sum(BigDecimal("0")) do |item|
-          Units.weight_to_kg(item.fetch(:weight), @weight_unit) * Integer(item.fetch(:quantity))
+          Units.weight_to_kg(item.fetch(:weight), @weight_unit) * item.fetch(:quantity)
         end
+        raise ValidationError, "package weight must be positive" unless package_weight.positive?
+
         package_volume = total_volume
         payload = {
           currencyCode: @currency,
@@ -47,14 +49,15 @@ module SolidusNshift
 
         @items.sum(BigDecimal("0")) do |item|
           dimensions = %i[length width height].map { |key| Units.length_to_cm(item.fetch(key), @dimension_unit) }
-          dimensions.reduce(:*) * Integer(item.fetch(:quantity))
+          dimensions.reduce(:*) * item.fetch(:quantity)
         end
       end
 
       def deep_plain(value)
         case value
         when JsonDecimal then value.value.to_s("F")
-        when Hash then value.to_h { |key, item| [key.to_s, deep_plain(item)] }
+        when Hash
+          value.sort_by { |key, _item| key.to_s }.to_h { |key, item| [key.to_s, deep_plain(item)] }
         when Array then value.map { |item| deep_plain(item) }
         else value
         end
@@ -75,6 +78,40 @@ module SolidusNshift
         raise ValidationError, "currency must be ISO 4217" unless /\A[A-Z]{3}\z/.match?(@currency)
         raise ValidationError, "locale must be a two-letter language code" unless /\A[a-z]{2}\z/.match?(@locale)
         raise ValidationError, "package must contain at least one item" if @items.empty?
+      end
+
+      def normalize_items(items)
+        raise ValidationError, "items must be an array" unless items.is_a?(Array)
+
+        items.map do |item|
+          normalized = normalized_hash(item, "item")
+          normalized[:quantity] = positive_integer!(normalized[:quantity])
+          Units.weight_to_kg(normalized.fetch(:weight), @weight_unit)
+          %i[length width height].each do |key|
+            Units.length_to_cm(normalized[key], @dimension_unit) unless normalized[key].nil?
+          end
+          normalized
+        rescue KeyError
+          raise ValidationError, "item weight is required"
+        end
+      end
+
+      def normalized_hash(value, name)
+        raise ValidationError, "#{name} must be an object" unless value.respond_to?(:to_h)
+
+        value.to_h.transform_keys(&:to_sym)
+      rescue TypeError, NoMethodError
+        raise ValidationError, "#{name} must be an object"
+      end
+
+      def positive_integer!(value)
+        integer = Integer(value)
+        raise ArgumentError unless integer.positive?
+        raise ArgumentError if value.is_a?(Numeric) && value != integer
+
+        integer
+      rescue ArgumentError, TypeError
+        raise ValidationError, "item quantity must be a positive integer"
       end
     end
   end

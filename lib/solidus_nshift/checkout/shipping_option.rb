@@ -18,23 +18,28 @@ module SolidusNshift
       end
 
       def self.from_hash(value, session_id:, default_currency: nil)
-        price_value = value["price"]
-        price_value = price_value["value"] || price_value["amount"] if price_value.is_a?(Hash)
-        service = value["service"] || value["carrierService"] || {}
-        carrier = value["carrier"] || {}
-        pickup_values = value["pickupPoints"] || value["servicePoints"] || []
+        pickup_values = value.fetch("pickupPoints", [])
+        unless pickup_values.is_a?(Array)
+          raise MalformedResponseError, "nShift shipping option pickupPoints must be an array"
+        end
+        delivery_time = value["deliveryTime"]
+        unless delivery_time.nil? || delivery_time.is_a?(Hash)
+          raise MalformedResponseError, "nShift shipping option deliveryTime must be an object"
+        end
+
         new(
-          external_id: value["optionId"] || value["id"],
-          service_code: value["sourceSystemProductId"] || value["serviceCode"] || service["id"] || service["code"],
-          carrier_code: value["sourceSystemCarrierId"] || value["carrierCode"] || carrier["id"] || carrier["code"],
-          carrier_name: value["carrierName"] || carrier["name"],
-          label: value["name"] || value["label"] || value["title"] || value["priceDescription"],
-          price: decimal!(price_value, "price"),
-          currency: (value["currencyCode"] || value["currency"] || default_currency).to_s.upcase,
-          delivery_estimate: value["deliveryTime"] || value["deliveryEstimate"] || value["deliveryWindow"],
-          pickup_points: Array(pickup_values).map { |point| PickupPoint.from_hash(point) },
+          external_id: value["optionId"],
+          service_code: value["sourceSystemProductId"],
+          carrier_code: value["sourceSystemCarrierId"],
+          carrier_name: value["carrierName"],
+          label: value["name"],
+          price: decimal!(value["price"], "price"),
+          currency: default_currency.to_s.upcase,
+          delivery_estimate: delivery_time&.fetch("description", nil),
+          pickup_points: pickup_values.map { |point| PickupPoint.from_hash(point) },
           metadata: {
-            "code" => value["code"],
+            "carrierProductId" => value["carrierProductId"],
+            "carrierProductSourceSystem" => value["carrierProductSourceSystem"],
             "sourceSystemCarrierId" => value["sourceSystemCarrierId"],
             "sourceSystemProductId" => value["sourceSystemProductId"]
           }.compact.freeze,

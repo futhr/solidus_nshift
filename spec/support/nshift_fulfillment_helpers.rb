@@ -78,6 +78,13 @@ module NshiftFulfillmentHelpers
     connection.preferred_delivery_api_key_secret = "delivery-secret"
     connection.preferred_delivery_developer_id = "solidus-nshift-tests"
     connection.preferred_delivery_sender_quick_id = "1"
+    connection.preferred_delivery_sender_name = "Synthetic Merchant"
+    connection.preferred_delivery_sender_address1 = "Examplegatan 1"
+    connection.preferred_delivery_sender_zipcode = "111 22"
+    connection.preferred_delivery_sender_city = "Stockholm"
+    connection.preferred_delivery_sender_country = "SE"
+    connection.preferred_delivery_sender_phone = "+46800000000"
+    connection.preferred_delivery_sender_email = "shipping@example.test"
     connection.preferred_delivery_test_mode = true
   end
 
