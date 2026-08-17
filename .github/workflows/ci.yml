@@ -16,6 +16,9 @@ jobs:
     name: Ruby ${{ matrix.ruby }} / Solidus ${{ matrix.solidus }} / Rails ${{ matrix.rails }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +48,14 @@ jobs:
       - run: bin/rails zeitwerk:check
         working-directory: spec/dummy
       - run: bundle exec rspec
+      - name: Upload coverage to Codecov
+        if: matrix.ruby == '3.3' && github.event_name == 'push'
+        uses: codecov/codecov-action@v5
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: coverage/lcov/solidus_nshift.lcov
+          use_oidc: true
 
   quality:
     name: Lint and build
