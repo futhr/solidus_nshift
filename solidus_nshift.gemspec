@@ -32,6 +32,7 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "solidus_dev_support"
   spec.add_development_dependency "rspec", "~> 3.13"
+  spec.add_development_dependency "rubocop-rake", "~> 0.7"
   spec.add_development_dependency "rubocop-rails-omakase", "~> 1.1"
   spec.add_development_dependency "simplecov-lcov", "~> 0.9"
   spec.add_development_dependency "webmock", "~> 3.24"
