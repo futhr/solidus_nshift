@@ -7,10 +7,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Ruby ${{ matrix.ruby }} / Solidus ${{ matrix.solidus }} / Rails ${{ matrix.rails }}
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -31,24 +36,112 @@ jobs:
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
       COVERAGE: ${{ matrix.ruby == '3.3' && 'true' || 'false' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: bundle exec rake extension:test_app
+      - run: bin/rails zeitwerk:check
+        working-directory: spec/dummy
       - run: bundle exec rspec
-      - run: bundle exec rubocop
-      - run: bundle exec rake build
 
-  audit:
-    name: Dependency audit
+  quality:
+    name: Lint and build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOLIDUS_BRANCH: v4.7
+      RAILS_VERSION: "7.2"
+      SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
           bundler-cache: true
+      - run: bundle exec rubocop
+      - run: bundle exec rake build
+
+  postgres:
+    name: PostgreSQL concurrency and portability
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB: postgresql
+      DB_HOST: localhost
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SOLIDUS_BRANCH: v4.7
+      RAILS_VERSION: "7.2"
+      RAILS_ENV: test
+      SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: bundle exec rake extension:test_app
+      - run: bundle exec rspec
+
+  mysql:
+    name: MySQL portability
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: mysql
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -pmysql"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DB: mysql
+      DB_HOST: 127.0.0.1
+      DB_USERNAME: root
+      DB_PASSWORD: mysql
+      SOLIDUS_BRANCH: v4.7
+      RAILS_VERSION: "7.2"
+      RAILS_ENV: test
+      SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: bundle exec rake extension:test_app
+      - run: bundle exec rspec
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BUNDLE_GEMFILE: gemfiles/runtime_audit.gemfile
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      - run: bundle lock
       - run: gem install bundler-audit
-      - run: bundle audit check --update
+      - run: ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --gemfile-lock gemfiles/runtime_audit.gemfile.lock --update

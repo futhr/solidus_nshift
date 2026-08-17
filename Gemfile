@@ -8,7 +8,9 @@ gem "solidus", github: "solidusio/solidus", branch: solidus_branch
 
 rails_series = ENV.fetch("RAILS_VERSION", "7.2")
 rails_requirement = (rails_series.count(".") == 1) ? "~> #{rails_series}.0" : "~> #{rails_series}"
-gem "rails", rails_requirement
+rails_requirements = [rails_requirement]
+rails_requirements << ">= 7.2.3.2" if rails_series == "7.2"
+gem "rails", *rails_requirements
 
 case ENV.fetch("DB", "sqlite")
 when "postgresql" then gem "pg"

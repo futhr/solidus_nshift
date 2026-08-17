@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# Audit the dependencies shipped to applications, independently of the
+# development-only Solidus test harness.
+gem "rails", "~> 7.2.3", ">= 7.2.3.2"
+gem "solidus_core", "~> 4.7.0"
+gem "solidus_nshift", path: ".."
