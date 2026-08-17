@@ -16,9 +16,6 @@ jobs:
     name: Ruby ${{ matrix.ruby }} / Solidus ${{ matrix.solidus }} / Rails ${{ matrix.rails }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    permissions:
-      contents: read
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -55,7 +52,7 @@ jobs:
           disable_search: true
           fail_ci_if_error: true
           files: coverage/lcov/solidus_nshift.lcov
-          use_oidc: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   quality:
     name: Lint and build
