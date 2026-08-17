@@ -1,34 +1,38 @@
 # Solidus nShift
 
-`solidus_nshift` connects Solidus 4.6+ to the current nShift product families without carrying the old `spree_unifaun` API or namespace forward.
+[![Gem Version](https://img.shields.io/gem/v/solidus_nshift.svg)](https://rubygems.org/gems/solidus_nshift)
+[![CI](https://github.com/futhr/solidus_nshift/actions/workflows/ci.yml/badge.svg)](https://github.com/futhr/solidus_nshift/actions/workflows/ci.yml)
+[![Codecov](https://codecov.io/gh/futhr/solidus_nshift/graph/badge.svg)](https://codecov.io/gh/futhr/solidus_nshift)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE.md)
 
-It provides:
+`solidus_nshift` adds nShift checkout and fulfillment to Solidus. It keeps provider traffic out of checkout models, records every shipment mutation before dispatch, and gives operators a safe path through uncertain provider outcomes.
 
-- nShift Checkout v2 OAuth, sessions, dynamic shipping options, and partial shipments;
-- exact decimal rates and service-point continuity through Solidus checkout;
-- nShift Delivery REST shipment booking, PDF/ZPL document references, download, and cancellation;
-- Shipment Data OAuth lookup and idempotent tracking-event synchronization;
-- durable operation intents and reconciliation after ambiguous network outcomes;
-- authorized Solidus admin screens for credentials and fulfillment operations.
+## Features
+
+- Checkout sessions, dynamic delivery options, and service points through nShift Checkout v2
+- Exact decimal rates with destination and package-context validation
+- Delivery booking, cancellation, and PDF or ZPL label download
+- Shipment Data lookup and idempotent tracking updates
+- Durable operation history, reconciliation, and authorized Solidus admin screens
 
 ## Compatibility
 
-- Ruby 3.2 or newer
-- Solidus 4.6 or 4.7
-- Rails 7.1 or 7.2
+| Ruby | Rails | Solidus |
+| --- | --- | --- |
+| 3.2 | 7.1 | 4.6 |
+| 3.3 or 3.4 | 7.2 | 4.7 |
 
-The CI matrix verifies the minimum and current supported combinations. The gem uses `SolidusNshift` as its Ruby namespace and `solidus_nshift` for gem, engine, table, route, and instrumentation identities.
-The suite runs on SQLite, PostgreSQL 17, and MySQL 8.4; PostgreSQL also executes the real row-lock and unique-key concurrency cases.
+CI runs the suite on SQLite, PostgreSQL 17, and MySQL 8.4. PostgreSQL also runs the row-lock and unique-key concurrency examples.
 
 ## Installation
 
-Add the gem to the Solidus application:
+Add the gem to the application:
 
 ```ruby
 gem "solidus_nshift", ">= 0.1.0.alpha.1", "< 0.2"
 ```
 
-Then install and migrate:
+Install it and copy the migrations:
 
 ```sh
 bundle install
@@ -36,66 +40,51 @@ bin/rails generate solidus_nshift:install
 bin/rails db:migrate
 ```
 
-The installer mounts the isolated engine at `/solidus_nshift`, copies migrations, and creates `config/initializers/solidus_nshift.rb`.
+The generator mounts the engine at `/solidus_nshift` and creates `config/initializers/solidus_nshift.rb`.
 
-Set a 32-byte `SOLIDUS_PREFERENCES_MASTER_KEY` in every environment before configuring encrypted nShift credentials. Changing this key makes stored secrets unreadable.
+Set a stable, high-entropy 32-byte `SOLIDUS_PREFERENCES_MASTER_KEY` before saving credentials. Changing this key makes existing encrypted preferences unreadable.
 
 ## Configuration
 
-Open **Admin → nShift → Connections** and create a connection for each Solidus store/environment. Test and production credentials must use separate records.
+Open **Admin → nShift → Connections** and create a separate connection for each store and environment. Enable only the nShift products available to that account:
 
-Enable only the capabilities licensed for that nShift account:
+- **Checkout** needs a Portal OAuth client and Checkout connection ID.
+- **Delivery** needs API credentials, developer ID, sender Quick ID, sender address, and label settings.
+- **Tracking** needs a Shipment Data OAuth client.
 
-- **Checkout:** Portal OAuth client ID/secret and Checkout connection ID.
-- **Delivery:** API key ID/secret, developer ID, sender Quick ID, and the sender's complete postal address.
-- **Tracking:** Shipment Data OAuth client ID/secret.
+Add the `nShift Checkout` calculator to a shipping method, then choose its connection, option kind, service allowlist, units, and language. Use separate shipping methods for customer-visible home and pickup choices.
 
-Secret fields are never echoed back by the admin form. Submitting a blank secret retains the encrypted stored value.
-
-Delivery shipment creation sends both the sender Quick ID and full sender details, matching the current REST shipment schema instead of assuming the API will expand an address-book reference. Delivery also requires a label format and nShift print-media identifier. The defaults are PDF with `laser-a4`; a ZPL setup commonly uses media such as `thermo-250`, but the exact media must be confirmed for the merchant's nShift account and printer profile.
-
-Safe Delivery reconciliation also requires the **REST API Shipment History** license. The adapter searches shipment history by the exact persisted order reference after an ambiguous booking or cancellation outcome; it never treats the printed-shipment feed as history.
-
-Create one `Spree::ShippingMethod` per customer-visible option family and select the `nShift Checkout` calculator. Configure:
-
-- the connection ID;
-- optional allowed nShift service codes, separated by commas or whitespace;
-- option kind: `home`, `pickup`, or `any`;
-- Solidus weight/dimension units and two-letter nShift language code.
-
-Solidus persists one rate per shipping method and shipment. Separate home/pickup shipping methods preserve that invariant while a shared request cache prevents duplicate nShift calls.
-
-The gem uses `Rails.cache` by default for OAuth tokens and rate requests. Production installations with more than one process must configure a shared cache store (for example Redis), not a process-local memory store.
-
-Checkout failures are fail-closed: an authentication, transport, schema, currency, or provider error yields no nShift rate. Other independently configured Solidus shipping methods remain available, which is the supported explicit fallback. The gem never substitutes a stale, zero, or guessed nShift rate.
+Delivery reconciliation requires the **REST API Shipment History** entitlement. Multi-process deployments also need a shared `Rails.cache` store for OAuth tokens and rate requests.
 
 ## Pickup selection
 
-The selected `Spree::ShippingRate` has a `nshift_selection` containing the current session, opaque option ID, context digest, and offered points. A storefront selects a point with:
+Pickup options store the points offered for their exact shipment context. Submit the chosen point against the selected rate:
 
 ```http
 PATCH /solidus_nshift/rate_selections/:id.json
-X-Spree-Order-Token: <order guest token>
+X-Spree-Order-Token: <guest order token>
 Content-Type: application/json
 
 {"pickup_point_id":"SE-10001"}
 ```
 
-The endpoint uses Solidus authorization, accepts only a point returned for the selected rate, and rejects completed orders. Changing destination, package, connection, or session invalidates the old selection.
+The endpoint uses Solidus order authorization and rejects stale, completed, unselected, or unoffered choices.
 
-## Fulfillment behavior
+## Runtime guarantees
 
-`order_finalized` enqueues a booking job only for shipments with a selected nShift rate. Booking is never performed by the estimator or an Active Record callback.
+- Checkout errors fail closed; the gem never invents a zero, stale, or guessed rate.
+- Booking and cancellation are fingerprinted and persisted before the provider request.
+- Ambiguous mutations enter reconciliation instead of being sent again blindly.
+- Secrets, addresses, tokens, and label bodies are excluded from instrumentation.
 
-Before any provider mutation, the gem persists a unique fulfillment intent and a SHA-256 fingerprinted operation revision. Checkout partial-shipment creation and Delivery booking are separate operations. Concurrent or repeated jobs cannot dispatch a succeeded/in-progress operation twice. A retry after a definitive rejection retains the rejected row and creates a new revision, allowing corrected data without weakening ambiguous-outcome safety.
+## Documentation
 
-Delivery booking sends the documented `shipmentPrint` envelope: `printConfig` and a nested `shipment`. The response must identify exactly one explicitly non-return, non-consolidated shipment. Database constraints prevent one provider shipment, Checkout partial shipment, or Shipment Data UUID from being adopted by two fulfillments in the same connection.
-
-When a mutating request times out or returns an ambiguous response, the operation becomes `unknown` and the fulfillment becomes `reconciliation_pending`. Delivery reconciliation searches by the stable merchant reference and adopts a found shipment. It never assumes “not found” is permission to create another shipment. Checkout partial-shipment ambiguity requires manual provider verification because that API does not expose a safe lookup in this adapter.
-
-Queue enqueue failures emit `solidus_nshift.enqueue_failed` without job arguments or customer data. The pre-existing fulfillment intent remains visible and can be safely queued again.
-
-See [Operations](docs/operations.md), [test-account certification](docs/sandbox-certification.md), [releasing](docs/releasing.md), [API decision ADR](docs/adr/0001-nshift-api-products.md), and the [migration guide](docs/migration-from-spree-unifaun.md).
+- [Architecture and code map](docs/README.md)
+- [Operations guide](docs/operations.md)
+- [nShift test-account certification](docs/sandbox-certification.md)
+- [Migration from `spree_unifaun`](docs/migration-from-spree-unifaun.md)
+- [Release process](docs/releasing.md)
+- [API product decision](docs/adr/0001-nshift-api-products.md)
 
 ## Development
 
@@ -107,10 +96,10 @@ ruby -S bundle exec rubocop
 ruby -S bundle exec rake build
 ```
 
-Provider tests use sanitized synthetic fixtures and never require production credentials. There is no public nShift Docker sandbox for the supported APIs, so a final run with an nShift-provisioned test account remains mandatory. Follow the [short certification checklist](docs/sandbox-certification.md) before enabling a capability in production.
+Tests use synthetic provider fixtures and no real credentials. nShift does not publish a local sandbox for these APIs, so each enabled product still needs a final run with an nShift-provisioned test account.
 
-Manifests, consolidated shipments, Shipment Server, Delivery Cloud, dangerous-goods handling, and customs/non-EU shipment data are outside this release. Do not enable a service that requires those payloads without adding and certifying the corresponding adapter behavior.
+See [CONTRIBUTING.md](CONTRIBUTING.md) before changing a provider contract, and report vulnerabilities through [SECURITY.md](SECURITY.md).
 
 ## License
 
-BSD-3-Clause. See [LICENSE.md](LICENSE.md).
+Released under the [BSD 3-Clause License](LICENSE.md).
