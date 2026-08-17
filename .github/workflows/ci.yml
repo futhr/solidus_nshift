@@ -36,7 +36,7 @@ jobs:
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
       COVERAGE: ${{ matrix.ruby == '3.3' && 'true' || 'false' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
@@ -63,7 +63,7 @@ jobs:
       RAILS_VERSION: "7.2"
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -97,7 +97,7 @@ jobs:
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -131,7 +131,7 @@ jobs:
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -146,7 +146,7 @@ jobs:
     env:
       BUNDLE_GEMFILE: gemfiles/runtime_audit.gemfile
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
