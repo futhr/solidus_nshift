@@ -21,7 +21,7 @@ jobs:
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
