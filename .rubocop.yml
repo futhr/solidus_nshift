@@ -6,3 +6,4 @@ AllCops:
   SuggestExtensions: false
   Exclude:
     - "spec/dummy/**/*"
+    - "vendor/bundle/**/*"

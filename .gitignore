@@ -3,6 +3,7 @@
 /pkg/
 /spec/dummy/
 /spec/examples.txt
+/vendor/bundle/
 /.env
 *.gem
 Gemfile.lock
