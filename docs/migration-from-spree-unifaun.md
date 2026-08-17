@@ -21,20 +21,9 @@ No compatibility aliases are provided. This prevents old constants, credentials,
 3. Set `SOLIDUS_PREFERENCES_MASTER_KEY` to a stable 32-byte secret.
 4. Create new per-store nShift connections. Legacy plaintext/settings data is intentionally not imported.
 5. Replace each old shipping method/calculator with one or more nShift Checkout shipping methods. Use separate `home` and `pickup` methods where both are displayed.
-6. Validate every allowed nShift service code and sender Quick ID in a test account.
-7. Complete the sandbox checklist below before enabling production credentials.
+6. Enter the complete sender address and validate it, every allowed nShift service code, and the sender Quick ID in a test account.
+7. Complete the [nShift test-account certification](sandbox-certification.md) before enabling production credentials.
 
 Existing completed legacy shipments remain historical Solidus data and receive no synthetic nShift fulfillment rows. In-progress checkouts must be re-rated after the new shipping methods are active.
 
-## Sandbox checklist
-
-- Swedish home-delivery and pickup addresses return the expected options.
-- Address and package changes produce a new context and invalidate the old selection.
-- A pickup ID not offered to that order is rejected.
-- Finalization creates one Checkout partial shipment and one Delivery shipment.
-- Re-running the booking job does not create another shipment.
-- A forced post-dispatch timeout produces `reconciliation_pending`; reconciliation adopts the remote shipment.
-- PDF and ZPL documents download through an authenticated admin session.
-- Multiple parcel documents remain separate.
-- Shipment Data imports duplicate, out-of-order, unknown, exception, and delivered events correctly.
-- Test and production connections have different credentials and Delivery test mode is disabled only at production cutover.
+The certification record is the release gate. Keep test and production connections separate, and leave Delivery test mode on until production cutover.

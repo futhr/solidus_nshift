@@ -1,42 +1,47 @@
-# nShift sandbox certification record
+# nShift test-account certification
 
-The automated suite is deterministic and credential-free. Production enablement additionally requires a merchant-owned nShift test account because product entitlements, carrier contracts, service codes, sender Quick IDs, and document formats cannot be inferred from public API documentation.
+There is no public nShift Docker image or local emulator for the APIs used by this gem. The automated suite therefore uses synthetic, sanitized responses for repeatable contract and failure testing. Before production, run this checklist against an nShift-provisioned test account.
 
-## Evidence status
+The hosted Shipment Server demo is for a different nShift product and cannot certify this integration.
 
-Status: **awaiting merchant test credentials and entitlement confirmation**.
+## Access to request
 
-This is an external release gate for each enabled capability, not a mocked success claim. Checkout and Delivery can ship independently of optional Shipment Data entitlement.
+Ask nShift support or the merchant's account contact for only the capabilities being enabled:
 
-## Required run
+- **Checkout:** a Portal test tenant, a Checkout connection with Swedish home and pickup options, and an OAuth client allowed to use the Public Checkout API.
+- **Delivery:** Delivery REST/APIConnect access, an API key, developer ID, sender Quick ID, service codes, label media, and the REST API Shipment History entitlement used for safe reconciliation.
+- **Tracking (optional):** a Portal OAuth client allowed to use Shipment Data, plus test shipment events.
 
-Record the date, nShift test account/actor identifier (never the secret), Solidus/Rails versions, enabled capabilities, connection ID, service codes, and sender Quick ID.
+Confirm that Delivery test mode produces TEST labels and does not forward carrier EDI. Never reuse production credentials in the test connection.
 
-Capture sanitized screenshots with these names:
+The API hosts do not change for this run: Checkout and Tracking isolation comes from the nShift-issued tenant and credentials, while Delivery uses its request-level test flag. In a staging store, create a dedicated connection, enable only the granted capabilities, keep Delivery test mode on, and use synthetic customer data.
 
-1. `01-admin-connection-sanitized.png`
-2. `02-checkout-shipping-options.png`
-3. `03-checkout-pickup-selected.png`
-4. `04-admin-fulfillment-booked.png`
-5. `05-admin-label-download.png`
-6. `06-admin-tracking-events.png`
-7. `07-timeout-reconciliation.png`
+## Run record
 
-Never include credentials, access tokens, API keys, real customer names/addresses, label barcodes, tracking numbers, or unredacted provider request IDs.
+| Field | Value |
+| --- | --- |
+| Date and tester | |
+| nShift test tenant or account ID | |
+| Solidus / Rails / gem versions | |
+| Connection ID and enabled capabilities | |
+| Service codes and sender Quick ID | |
+| Label format and print media | |
 
-## Acceptance record
+Do not record secrets, tokens, customer details, barcodes, tracking numbers, or full provider request IDs.
+
+## Checks
+
+Mark optional rows `N/A`. Link sanitized screenshots or logs in the evidence column.
 
 | Check | Result | Evidence / note |
 | --- | --- | --- |
-| OAuth token and four-hour Checkout session | Pending | |
-| Swedish home options | Pending | |
-| Swedish pickup option and offered point validation | Pending | |
-| Changed destination/package invalidates old selection | Pending | |
-| Checkout partial shipment created once | Pending | |
-| Delivery shipment and all parcel documents created once | Pending | |
-| PDF and ZPL retrieval | Pending | |
-| Forced ambiguous timeout reconciles without rebooking | Pending | |
-| Cancellation behavior | Pending | |
-| Shipment Data lookup/events, if entitled | Pending | |
+| Checkout authenticates, creates a session, and returns the expected Swedish home and pickup options | Pending | |
+| Pickup selection rejects an unoffered point; changing the address or package invalidates the old selection | Pending | |
+| Finalization creates one Checkout partial shipment and one Delivery shipment with the configured sender, receiver, and service | Pending | |
+| Re-running the booking job creates no duplicate shipment or document | Pending | |
+| Every parcel document downloads; the configured PDF or ZPL format and print media produce the expected label | Pending | |
+| A forced post-dispatch timeout becomes `reconciliation_pending` and Shipment History adopts the remote shipment without rebooking | Pending | |
+| Cancellation reaches the expected provider and local state | Pending | |
+| Shipment Data finds the order and imports test events idempotently | Pending | |
 
-The production connection remains inactive and Delivery test mode remains enabled until every in-scope row passes.
+Keep the production connection inactive until every enabled capability passes. Create it with separate credentials, and turn off Delivery test mode only during the approved production cutover.

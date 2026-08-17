@@ -9,3 +9,7 @@
 - Added optional Shipment Data lookup and idempotent, monotonic event import.
 - Added encrypted per-store connection configuration and authorized admin operations.
 - Added deterministic provider contracts and supported Solidus/Rails test coverage.
+- Added the documented Delivery `shipmentPrint` envelope, complete sender data, and configurable PDF/ZPL print media.
+- Added durable pre-enqueue intents, queue-failure telemetry, bounded reconciliation, and database adoption constraints.
+- Added PostgreSQL concurrency and MySQL portability certification to CI.
+- Added a guarded RubyGems trusted-publishing workflow and release runbook.

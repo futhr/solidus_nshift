@@ -19,3 +19,5 @@ Changes to provider contracts require:
 - documentation for any new account entitlement or operational recovery step.
 
 Keep commits narrowly focused and use Conventional Commit subjects. Do not add compatibility aliases for the retired `spree_unifaun` namespace.
+
+Maintainers should follow the [release runbook](docs/releasing.md); releases use RubyGems trusted publishing and never a stored API token.

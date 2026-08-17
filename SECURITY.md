@@ -16,5 +16,6 @@ Until the first stable release, only the latest published prerelease receives se
 - Restrict Solidus admin access and production job/log access.
 - Do not log request bodies, OAuth tokens, API keys, addresses, label binaries, or customer contact data.
 - Rotate exposed credentials in nShift first, then update the connection. Blank admin secret fields intentionally retain stored values.
+- Publish releases through the trusted-publishing workflow; never store a RubyGems API key in the repository or GitHub Actions.
 
 Label download and fulfillment actions inherit Solidus admin authorization. Pickup selection inherits Solidus order authorization and checks that the submitted point belongs to the selected rate and incomplete order.
