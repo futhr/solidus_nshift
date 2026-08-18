@@ -36,8 +36,10 @@ jobs:
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
       COVERAGE: ${{ matrix.ruby == '3.3' && 'true' || 'false' }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
@@ -47,7 +49,7 @@ jobs:
       - run: bundle exec rspec
       - name: Upload coverage to Codecov
         if: matrix.ruby == '3.3' && github.event_name == 'push'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           disable_search: true
           fail_ci_if_error: true
@@ -63,8 +65,10 @@ jobs:
       RAILS_VERSION: "7.2"
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
         with:
           ruby-version: "3.3"
           bundler-cache: true
@@ -97,8 +101,10 @@ jobs:
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
         with:
           ruby-version: "3.3"
           bundler-cache: true
@@ -131,8 +137,10 @@ jobs:
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
         with:
           ruby-version: "3.3"
           bundler-cache: true
@@ -146,8 +154,10 @@ jobs:
     env:
       BUNDLE_GEMFILE: gemfiles/runtime_audit.gemfile
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
         with:
           ruby-version: "3.3"
       - run: bundle lock
