@@ -43,6 +43,24 @@ RSpec.describe SolidusNshift::OrderFinalizedSubscriber do
     )
   end
 
+  it "revalidates a delivery-only selection after waiting in the booking queue" do
+    data = create_nshift_shipment
+    data[:connection].update!(checkout_enabled: false)
+    delivery_client = instance_double(SolidusNshift::Delivery::Client)
+    allow(delivery_client).to receive(:create_shipment)
+    allow_any_instance_of(SolidusNshift::Connection).to receive(:delivery_client).and_return(delivery_client)
+    bus = Omnes::Bus.new
+    bus.register(:order_finalized)
+    described_class.new.subscribe_to(bus)
+
+    bus.publish(:order_finalized, order: data[:order])
+    data[:order].update!(ship_address: create(:address, country_iso_code: "SE", zipcode: "411 01"))
+
+    expect { SolidusNshift::BookShipmentJob.perform_now(data[:shipment].id) }
+      .to raise_error(SolidusNshift::StaleSessionError)
+    expect(delivery_client).not_to have_received(:create_shipment)
+  end
+
   it "installs idempotently across Rails code reloads" do
     data = create_nshift_shipment
     bus = Omnes::Bus.new

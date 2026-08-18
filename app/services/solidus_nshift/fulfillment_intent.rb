@@ -8,7 +8,7 @@ module SolidusNshift
 
     def call
       existing = Fulfillment.find_by(shipment: @shipment)
-      return existing if existing && checkout_intent_already_persisted?(existing)
+      return existing if existing && provider_state_already_persisted?(existing)
 
       selection = SelectionValidator.new(shipment: @shipment).call
       record = existing || Fulfillment.find_or_create_by!(shipment: @shipment) do |candidate|
@@ -29,8 +29,8 @@ module SolidusNshift
 
     private
 
-    def checkout_intent_already_persisted?(record)
-      !record.connection.checkout_enabled? || record.checkout_partial_shipment_id.present?
+    def provider_state_already_persisted?(record)
+      record.checkout_partial_shipment_id.present? || record.provider_shipment_id.present?
     end
 
     def validate!(record, selection)

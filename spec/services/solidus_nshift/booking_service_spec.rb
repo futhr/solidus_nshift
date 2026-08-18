@@ -160,6 +160,16 @@ RSpec.describe SolidusNshift::BookingService do
     expect(checkout_client).not_to have_received(:create_partial_shipment)
   end
 
+  it "revalidates a delivery-only intent created before the booking job runs" do
+    connection.update!(checkout_enabled: false)
+    SolidusNshift::FulfillmentIntent.new(shipment: data[:shipment]).call
+    data[:order].update!(ship_address: create(:address, country_iso_code: "SE", zipcode: "411 01"))
+
+    expect { described_class.new(shipment: data[:shipment]).call }
+      .to raise_error(SolidusNshift::StaleSessionError)
+    expect(delivery_client).not_to have_received(:create_shipment)
+  end
+
   it "does not schedule reconciliation when local Delivery payload construction fails" do
     allow(SolidusNshift.configuration).to receive(:parcel_builder)
       .and_return(->(_shipment) { raise "merchant parcel builder failed" })
