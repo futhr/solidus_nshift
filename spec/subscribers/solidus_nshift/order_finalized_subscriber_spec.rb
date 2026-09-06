@@ -2,7 +2,31 @@
 
 require "rails_helper"
 
-RSpec.describe SolidusNshift::OrderFinalizedSubscriber do
+RSpec.describe SolidusNshift::OrderFinalizedSubscriber, :committed do
+  it "waits for the order transaction to commit before exposing the booking job" do
+    data = create_nshift_shipment
+
+    Spree::Order.transaction do
+      described_class.new.enqueue_bookings(order: data[:order])
+      expect(SolidusNshift::BookShipmentJob).not_to have_been_enqueued
+      expect(data[:shipment].reload.nshift_fulfillment).to be_present
+    end
+
+    expect(SolidusNshift::BookShipmentJob).to have_been_enqueued.with(data[:shipment].id)
+  end
+
+  it "does not enqueue a booking when order finalization rolls back" do
+    data = create_nshift_shipment
+
+    Spree::Order.transaction do
+      described_class.new.enqueue_bookings(order: data[:order])
+      raise ActiveRecord::Rollback
+    end
+
+    expect(SolidusNshift::BookShipmentJob).not_to have_been_enqueued
+    expect(data[:shipment].reload.nshift_fulfillment).to be_nil
+  end
+
   it "enqueues only shipments carrying a selected nShift rate" do
     data = create_nshift_shipment
     subscriber = described_class.new

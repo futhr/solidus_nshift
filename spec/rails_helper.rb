@@ -20,6 +20,7 @@ RSpec.configure do |config|
   # SolidusDevSupport selects truncation for `:js` examples. Database concurrency
   # specs need the same strategy so worker connections can see committed setup.
   config.define_derived_metadata(:concurrency) { |metadata| metadata[:js] = true }
+  config.define_derived_metadata(:committed) { |metadata| metadata[:js] = true }
 
   config.before do
     SolidusNshift.reset_configuration!

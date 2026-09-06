@@ -22,12 +22,14 @@ module SolidusNshift
         next unless shipment.selected_shipping_rate&.nshift_selection
 
         fulfillment = FulfillmentIntent.new(shipment:).call
-        JobEnqueuer.call(
-          job_class: SolidusNshift.configuration.book_shipment_job.call,
-          arguments: [shipment.id],
-          operation: "book_shipment",
-          metadata: {fulfillment_id: fulfillment.id, connection_id: fulfillment.connection_id}
-        )
+        ActiveRecord.after_all_transactions_commit do
+          JobEnqueuer.call(
+            job_class: SolidusNshift.configuration.book_shipment_job.call,
+            arguments: [shipment.id],
+            operation: "book_shipment",
+            metadata: {fulfillment_id: fulfillment.id, connection_id: fulfillment.connection_id}
+          )
+        end
       end
     end
   end
