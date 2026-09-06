@@ -43,6 +43,16 @@ RSpec.describe SolidusNshift::Checkout::Client do
     expect(options.first.service_code).to eq("P19")
   end
 
+  it "preserves the provider's decimal price without a floating-point conversion" do
+    body = fixture_body("checkout/shipping_options_home.json").sub(/"price":\s*[\d.]+/, '"price": 89.1234567890123456789')
+    transport = RecordedTransport.new(RecordedTransport.binary(200, body, content_type: "application/json"))
+    client = described_class.new(token_provider: tokens, transport:)
+
+    option = client.shipping_options(session_id: "session-1", payload: {}, currency: "SEK").first
+
+    expect(option.price).to eq(BigDecimal("89.1234567890123456789"))
+  end
+
   it "rejects duplicate opaque option IDs and malformed validity flags" do
     option = fixture_json("checkout/shipping_options_home.json").fetch("options").first
     duplicate_transport = RecordedTransport.new(

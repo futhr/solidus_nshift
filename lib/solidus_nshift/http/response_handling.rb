@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "bigdecimal"
 
 module SolidusNshift
   module Http
@@ -11,7 +12,7 @@ module SolidusNshift
         return {} if allow_empty && response.body.empty?
         raise malformed("nShift returned an empty JSON response", response) if response.body.empty?
 
-        parsed = JSON.parse(response.body)
+        parsed = JSON.parse(response.body, decimal_class: BigDecimal)
         valid = parsed.is_a?(Hash) || (allow_array && parsed.is_a?(Array))
         raise malformed("nShift response had an unexpected JSON shape", response) unless valid
 
