@@ -22,6 +22,20 @@ module NetHttpTransportSpec
 end
 
 RSpec.describe SolidusNshift::Http::NetHttpTransport do
+  it "disables implicit retries before dispatching a cancellation" do
+    http = Net::HTTP.new("api.example.test", 443)
+    allow(Net::HTTP).to receive(:new).and_return(http)
+    expect(http).to receive(:request).once do |request|
+      expect(request).to be_a(Net::HTTP::Delete)
+      expect(http.max_retries).to eq(0)
+      expect(http.verify_mode).to eq(OpenSSL::SSL::VERIFY_PEER)
+      raise EOFError
+    end
+
+    expect { described_class.new.call(method: :delete, url: "https://api.example.test/shipments/1") }
+      .to raise_error(EOFError)
+  end
+
   it "streams an HTTPS response into the normalized response object" do
     response = NetHttpTransportSpec::FakeResponse.new("201", ["one", "two"], {"x-request-id" => ["request-1"]})
     connection = NetHttpTransportSpec::FakeConnection.new(response, [])

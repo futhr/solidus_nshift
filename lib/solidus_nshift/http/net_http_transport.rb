@@ -57,6 +57,9 @@ module SolidusNshift
         Net::HTTP.new(uri.host, uri.port).tap do |http|
           http.use_ssl = true
           http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+          # Mutations are retried only through persisted operation revisions.
+          # Net::HTTP otherwise retries DELETE after some connection failures.
+          http.max_retries = 0
           http.open_timeout = @open_timeout
           http.read_timeout = @read_timeout
           http.write_timeout = @write_timeout if http.respond_to?(:write_timeout=)
