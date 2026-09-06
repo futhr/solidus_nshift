@@ -45,6 +45,17 @@ RSpec.describe SolidusNshift::ReconcileBooking do
     expect(delivery_client).to have_received(:create_shipment).once
   end
 
+  it "preserves a cancellation that happened before an unknown booking was reconciled" do
+    fulfillment = SolidusNshift::BookingService.new(shipment: data[:shipment]).call
+    value = nshift_fixture_json("shipments/booked_single_parcel.json").first.merge("status" => "CANCELED")
+    allow(delivery_client).to receive(:find_shipment).and_return(SolidusNshift::Delivery::Shipment.from_hash(value))
+
+    described_class.new(fulfillment:).call
+
+    expect(fulfillment.reload).to have_attributes(state: "canceled", provider_shipment_id: "10252317", last_reconciled_at: be_present)
+    expect(fulfillment.latest_operation("delivery_booking").status).to eq("succeeded")
+  end
+
   it "does not guess after an unresolved Checkout mutation" do
     allow(checkout_client).to receive(:create_partial_shipment)
       .and_raise(SolidusNshift::TimeoutUnknownOutcome, "unknown result")

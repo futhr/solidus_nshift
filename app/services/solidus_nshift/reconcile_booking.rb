@@ -17,6 +17,7 @@ module SolidusNshift
       shipment = @fulfillment.connection.delivery_client.find_shipment(reference: @fulfillment.merchant_reference)
       if shipment
         PersistDeliveryResult.new(fulfillment: @fulfillment, shipment:, operation:).call
+        @fulfillment.update!(last_reconciled_at: Time.current)
       else
         @fulfillment.update!(last_reconciled_at: Time.current, state: "reconciliation_pending")
       end

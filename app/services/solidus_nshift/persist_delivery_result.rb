@@ -13,7 +13,7 @@ module SolidusNshift
         @operation&.mark_succeeded!(provider_resource_id: @shipment.id)
         @fulfillment.update!(
           {
-            state: "booked",
+            state: @shipment.status.to_s.casecmp?("canceled") ? "canceled" : "booked",
             provider_shipment_id: @shipment.id,
             provider_status: @shipment.status,
             tracking_number: @shipment.tracking_number
