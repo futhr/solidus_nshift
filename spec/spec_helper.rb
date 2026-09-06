@@ -17,3 +17,6 @@ if ENV["COVERAGE"] == "true"
 end
 
 require "solidus_dev_support/rspec/spec_helper"
+require "webmock/rspec"
+
+WebMock.disable_net_connect!
