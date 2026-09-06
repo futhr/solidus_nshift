@@ -21,4 +21,19 @@ RSpec.describe SolidusNshift::MemoryCache do
 
     expect(calls).to eq(1)
   end
+
+  it "bounds memory even when expired keys are never read again" do
+    now = Time.utc(2026, 9, 6)
+    cache = described_class.new(clock: -> { now }, max_entries: 2)
+    cache.write("live", "keep", expires_in: 60)
+    cache.write("expired", "discard", expires_in: 1)
+    now += 2
+    cache.write("new", "new value")
+
+    expect(cache.read("live")).to eq("keep")
+    expect(cache.read("expired")).to be_nil
+    cache.write("newer", "newer value")
+    expect(cache.read("live")).to be_nil
+    expect(cache.read("new")).to eq("new value")
+  end
 end

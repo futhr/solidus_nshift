@@ -4,8 +4,10 @@ module SolidusNshift
   class MemoryCache
     Entry = Data.define(:value, :expires_at)
 
-    def initialize(clock: -> { Time.now })
+    def initialize(clock: -> { Time.now }, max_entries: 1_000)
       @clock = clock
+      @max_entries = Integer(max_entries)
+      raise ArgumentError, "cache entry limit must be positive" unless @max_entries.positive?
       @entries = {}
       @mutex = Mutex.new
     end
@@ -25,7 +27,15 @@ module SolidusNshift
 
     def write(key, value, expires_in: nil)
       expires_at = expires_in && (@clock.call + expires_in)
-      @mutex.synchronize { @entries[key] = Entry.new(value:, expires_at:) }
+      @mutex.synchronize do
+        @entries.delete(key)
+        if @entries.size >= @max_entries
+          now = @clock.call
+          @entries.delete_if { |_key, entry| entry.expires_at && entry.expires_at <= now }
+          @entries.shift while @entries.size >= @max_entries
+        end
+        @entries[key] = Entry.new(value:, expires_at:)
+      end
       value
     end
 
