@@ -21,16 +21,16 @@ jobs:
       matrix:
         include:
           - ruby: "3.2"
-            solidus: v4.6
-            rails: "7.1"
+            solidus: "4.6"
+            rails: "7.2"
           - ruby: "3.3"
-            solidus: v4.7
-            rails: "7.2"
+            solidus: "4.7"
+            rails: "8.1"
           - ruby: "3.4"
-            solidus: v4.7
-            rails: "7.2"
+            solidus: "4.7"
+            rails: "8.1"
     env:
-      SOLIDUS_BRANCH: ${{ matrix.solidus }}
+      SOLIDUS_VERSION: ${{ matrix.solidus }}
       RAILS_VERSION: ${{ matrix.rails }}
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
@@ -61,8 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SOLIDUS_BRANCH: v4.7
-      RAILS_VERSION: "7.2"
+      SOLIDUS_VERSION: "4.7"
+      RAILS_VERSION: "8.1"
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -74,6 +74,12 @@ jobs:
           bundler-cache: true
       - run: bundle exec rubocop
       - run: bundle exec rake build
+      - run: ruby bin/check_package
+      - name: Audit development tools (upstream Puma constraint)
+        continue-on-error: true
+        run: |
+          gem install bundler-audit --no-document
+          ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --update
 
   postgres:
     name: PostgreSQL concurrency and portability
@@ -96,8 +102,8 @@ jobs:
       DB_HOST: localhost
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
-      SOLIDUS_BRANCH: v4.7
-      RAILS_VERSION: "7.2"
+      SOLIDUS_VERSION: "4.7"
+      RAILS_VERSION: "8.1"
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
@@ -132,8 +138,8 @@ jobs:
       DB_HOST: 127.0.0.1
       DB_USERNAME: root
       DB_PASSWORD: mysql
-      SOLIDUS_BRANCH: v4.7
-      RAILS_VERSION: "7.2"
+      SOLIDUS_VERSION: "4.7"
+      RAILS_VERSION: "8.1"
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
@@ -163,3 +169,19 @@ jobs:
       - run: bundle lock
       - run: gem install bundler-audit
       - run: ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --gemfile-lock gemfiles/runtime_audit.gemfile.lock --update
+
+  core:
+    name: Core-only installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BUNDLE_GEMFILE: gemfiles/core.gemfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: ruby bin/check_core

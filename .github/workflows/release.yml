@@ -16,8 +16,8 @@ jobs:
       contents: read
       id-token: write
     env:
-      SOLIDUS_BRANCH: v4.7
-      RAILS_VERSION: "7.2"
+      SOLIDUS_VERSION: "4.7"
+      RAILS_VERSION: "8.1"
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
     steps:
@@ -42,6 +42,13 @@ jobs:
         working-directory: spec/dummy
       - run: bundle exec rspec
       - run: bundle exec rubocop
+      - run: bundle exec rake build
+      - run: ruby bin/check_package
+      - name: Audit runtime dependencies
+        run: |
+          BUNDLE_GEMFILE=gemfiles/runtime_audit.gemfile bundle lock
+          gem install bundler-audit --no-document
+          ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --gemfile-lock gemfiles/runtime_audit.gemfile.lock --update
       - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1, 2026-08-08
         with:
           attestations: true

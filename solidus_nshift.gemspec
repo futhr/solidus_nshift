@@ -23,14 +23,17 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = Gem::Requirement.new(">= 3.2")
 
-  files = Dir.glob("{app,config,db,docs,lib}/**/*").select { |path| File.file?(path) }
+  files = Dir.chdir(__dir__) do
+    Dir.glob("{app,config,db,docs,lib}/**/*").select { |path| File.file?(path) }
+  end
   spec.files = files + %w[CHANGELOG.md CONTRIBUTING.md LICENSE.md README.md SECURITY.md]
   spec.require_paths = ["lib"]
 
   spec.add_dependency "solidus_core", ">= 4.6", "< 5"
-  spec.add_dependency "solidus_support", ">= 0.12", "< 1"
+  spec.add_dependency "activerecord", ">= 7.2", "< 8.2"
+  spec.add_dependency "solidus_support", ">= 0.15", "< 1"
 
-  spec.add_development_dependency "solidus_dev_support"
+  spec.add_development_dependency "solidus_dev_support", "~> 2.12"
   spec.add_development_dependency "rspec", "~> 3.13"
   spec.add_development_dependency "rubocop-rake", "~> 0.7"
   spec.add_development_dependency "rubocop-rails-omakase", "~> 1.1"
