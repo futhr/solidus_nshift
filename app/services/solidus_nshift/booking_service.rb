@@ -10,7 +10,7 @@ module SolidusNshift
 
     def call
       @fulfillment = FulfillmentIntent.new(shipment: @shipment).call
-      return @fulfillment if @fulfillment.booked?
+      return @fulfillment if @fulfillment.booked? || @fulfillment.state == "canceled"
 
       if @fulfillment.connection.checkout_enabled? && @fulfillment.checkout_partial_shipment_id.blank?
         process_checkout

@@ -16,7 +16,7 @@ module SolidusNshift
 
     def claim!
       with_lock do
-        return false if status == "succeeded"
+        return false if %w[succeeded rejected].include?(status)
         raise ReconciliationRequired, "nShift operation outcome must be reconciled" if %w[in_progress unknown].include?(status)
 
         update!(

@@ -33,6 +33,14 @@ RSpec.describe SolidusNshift::Operation, type: :model do
     expect(operation.claim!).to be(false)
   end
 
+  it "does not allow a stale worker to reclaim a rejected revision" do
+    stale = described_class.find(operation.id)
+    operation.mark_rejected!(SolidusNshift::ValidationError.new("invalid shipment"))
+
+    expect(stale.claim!).to be(false)
+    expect(operation.reload).to have_attributes(status: "rejected", attempts: 0)
+  end
+
   it "allows exactly one concurrent database worker to claim the operation", :concurrency do
     skip "row-lock concurrency is certified on PostgreSQL" unless ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
 

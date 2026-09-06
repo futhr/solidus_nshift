@@ -7,9 +7,9 @@ module SolidusNshift
     end
 
     def call
-      return @fulfillment if @fulfillment.booked?
-      return unresolved_checkout unless checkout_resolved?
       return reconcile_cancel if cancel_unresolved?
+      return @fulfillment if @fulfillment.booked? || @fulfillment.state == "canceled"
+      return unresolved_checkout unless checkout_resolved?
 
       operation = @fulfillment.latest_operation("delivery_booking")
       return @fulfillment unless operation && %w[in_progress unknown].include?(operation.status)
@@ -50,11 +50,14 @@ module SolidusNshift
     def reconcile_cancel
       operation = @fulfillment.latest_operation("delivery_cancel")
       shipment = @fulfillment.connection.delivery_client.find_shipment(reference: @fulfillment.merchant_reference)
+      if shipment && shipment.id != @fulfillment.provider_shipment_id
+        raise ShipmentConflictError, "nShift cancellation lookup returned a different shipment"
+      end
       if shipment && shipment.status.to_s.casecmp?("canceled")
         Fulfillment.transaction do
           operation.mark_succeeded!(provider_resource_id: @fulfillment.provider_shipment_id)
           @fulfillment.update!(
-            {state: "canceled", provider_status: shipment.status}.merge(@fulfillment.clear_error_attributes)
+            {state: "canceled", provider_status: shipment.status, last_reconciled_at: Time.current}.merge(@fulfillment.clear_error_attributes)
           )
         end
       else

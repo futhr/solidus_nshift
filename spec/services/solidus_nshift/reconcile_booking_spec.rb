@@ -75,4 +75,33 @@ RSpec.describe SolidusNshift::ReconcileBooking do
     expect(fulfillment.reload).to have_attributes(state: "canceled", provider_status: "CANCELED")
     expect(operation.reload).to have_attributes(status: "succeeded", provider_resource_id: "10252317")
   end
+
+  it "reconciles a cancellation when a worker died before updating the booked state" do
+    fulfillment = SolidusNshift::FulfillmentIntent.new(shipment: data[:shipment]).call
+    fulfillment.update!(state: "booked", provider_shipment_id: "10252317")
+    operation = fulfillment.operations.create!(
+      kind: "delivery_cancel", status: "in_progress", request_fingerprint: "a" * 64
+    )
+    value = nshift_fixture_json("shipments/booked_single_parcel.json").first.merge("status" => "CANCELED")
+    allow(delivery_client).to receive(:find_shipment).and_return(SolidusNshift::Delivery::Shipment.from_hash(value))
+
+    described_class.new(fulfillment:).call
+
+    expect(fulfillment.reload).to have_attributes(state: "canceled", last_reconciled_at: be_present)
+    expect(operation.reload.status).to eq("succeeded")
+  end
+
+  it "does not confirm cancellation of a different shipment with the same reference" do
+    fulfillment = SolidusNshift::FulfillmentIntent.new(shipment: data[:shipment]).call
+    fulfillment.update!(state: "reconciliation_pending", provider_shipment_id: "another-shipment")
+    operation = fulfillment.operations.create!(
+      kind: "delivery_cancel", status: "unknown", request_fingerprint: "a" * 64
+    )
+    value = nshift_fixture_json("shipments/booked_single_parcel.json").first.merge("status" => "CANCELED")
+    allow(delivery_client).to receive(:find_shipment).and_return(SolidusNshift::Delivery::Shipment.from_hash(value))
+
+    expect { described_class.new(fulfillment:).call }.to raise_error(SolidusNshift::ShipmentConflictError)
+    expect(fulfillment.reload.state).to eq("reconciliation_pending")
+    expect(operation.reload.status).to eq("unknown")
+  end
 end
