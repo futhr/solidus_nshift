@@ -39,7 +39,8 @@ RSpec.describe SolidusNshift::Admin::FulfillmentsController, type: :controller d
 
   it "authorizes fulfillment administration and the requested mutation" do
     expect(controller).to receive(:authorize!).with(:admin, SolidusNshift::Fulfillment).ordered
-    expect(controller).to receive(:authorize!).with(:reconcile, SolidusNshift::Fulfillment).ordered
+    expect(controller).to receive(:authorize!).with(:reconcile, eq(SolidusNshift::Fulfillment)).ordered
+    expect(controller).to receive(:authorize!).with(:reconcile, fulfillment).ordered
 
     post :reconcile, params: {id: fulfillment.id}
 

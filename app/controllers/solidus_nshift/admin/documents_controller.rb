@@ -5,6 +5,7 @@ module SolidusNshift
     class DocumentsController < BaseController
       def show
         document = Document.includes(fulfillment: :connection).find(params[:id])
+        authorize! :show, document
         content = DownloadDocument.new(document:).call
         send_data(
           content.body,

@@ -43,10 +43,24 @@ RSpec.describe SolidusNshift::Admin::DocumentsController, type: :controller do
     allow(SolidusNshift::DownloadDocument).to receive(:new)
       .and_return(instance_double(SolidusNshift::DownloadDocument, call: content))
     expect(controller).to receive(:authorize!).with(:admin, SolidusNshift::Document).ordered
-    expect(controller).to receive(:authorize!).with(:show, SolidusNshift::Document).ordered
+    expect(controller).to receive(:authorize!).with(:show, eq(SolidusNshift::Document)).ordered
+    expect(controller).to receive(:authorize!).with(:show, document).ordered
 
     get :show, params: {id: document.id}
 
     expect(response).to have_http_status(:ok)
+  end
+
+  it "rejects a document outside the administrator's permitted fulfillment" do
+    ability = Class.new { include CanCan::Ability }.new
+    ability.can :admin, SolidusNshift::Document
+    ability.can :show, SolidusNshift::Document, fulfillment_id: -1
+    allow(controller).to receive(:current_ability).and_return(ability)
+    allow(controller).to receive(:handle_unauthorized_access) { controller.head :forbidden }
+    expect(SolidusNshift::DownloadDocument).not_to receive(:new)
+
+    get :show, params: {id: document.id}
+
+    expect(response).to have_http_status(:forbidden)
   end
 end

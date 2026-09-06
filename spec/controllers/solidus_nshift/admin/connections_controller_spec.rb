@@ -61,4 +61,38 @@ RSpec.describe SolidusNshift::Admin::ConnectionsController, type: :controller do
     expect(response.body).not_to include("checkout-secret", "delivery-secret", "delivery-key")
     expect(response.body).to include("Leave blank to keep the stored value")
   end
+
+  context "with store-scoped permissions" do
+    let!(:connection) { create_nshift_shipment[:connection] }
+
+    before do
+      ability = Class.new { include CanCan::Ability }.new
+      ability.can :admin, SolidusNshift::Connection
+      ability.can [:index, :update], SolidusNshift::Connection, store_id: connection.store_id
+      allow(controller).to receive(:current_ability).and_return(ability)
+      allow(controller).to receive(:handle_unauthorized_access) { controller.head :forbidden }
+    end
+
+    it "lists only connections allowed by the record conditions" do
+      other = create_nshift_shipment[:connection]
+      other.update!(name: "Restricted store connection")
+
+      get :index
+
+      expect(response.body).to include(connection.name)
+      expect(response.body).not_to include(other.name)
+    end
+
+    it "rejects moving an allowed connection into a restricted store" do
+      original_store_id = connection.store_id
+
+      patch :update, params: {
+        id: connection.id,
+        solidus_nshift_connection: {store_id: create(:store).id}
+      }
+
+      expect(response).to have_http_status(:forbidden)
+      expect(connection.reload.store_id).to eq(original_store_id)
+    end
+  end
 end

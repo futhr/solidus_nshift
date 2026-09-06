@@ -6,7 +6,7 @@ module SolidusNshift
       before_action :load_fulfillment, except: :index
 
       def index
-        @fulfillments = Fulfillment.includes(:connection, shipment: :order)
+        @fulfillments = Fulfillment.accessible_by(current_ability, :index).includes(:connection, shipment: :order)
           .order(created_at: :desc)
           .page(params[:page])
           .per(50)
@@ -72,6 +72,7 @@ module SolidusNshift
 
       def load_fulfillment
         @fulfillment = Fulfillment.find(params[:id])
+        authorize! action_name.to_sym, @fulfillment
       end
 
       def bookable?

@@ -11,15 +11,17 @@ module SolidusNshift
       before_action :load_connection, only: %i[edit update destroy]
 
       def index
-        @connections = Connection.includes(:store).order(:store_id, :name)
+        @connections = Connection.accessible_by(current_ability, :index).includes(:store).order(:store_id, :name)
       end
 
       def new
         @connection = Connection.new(store: current_store)
+        authorize! :new, @connection
       end
 
       def create
         @connection = Connection.new(connection_params)
+        authorize! :create, @connection
         if @connection.save
           redirect_to admin_connections_path, notice: "nShift connection created"
         else
@@ -31,7 +33,9 @@ module SolidusNshift
       end
 
       def update
-        if @connection.update(connection_params)
+        @connection.assign_attributes(connection_params)
+        authorize! :update, @connection
+        if @connection.save
           redirect_to admin_connections_path, notice: "nShift connection updated"
         else
           render :edit, status: :unprocessable_content
@@ -54,6 +58,7 @@ module SolidusNshift
 
       def load_connection
         @connection = Connection.find(params[:id])
+        authorize! action_name.to_sym, @connection
       end
 
       def connection_params
