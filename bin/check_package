@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "rubygems/package"
+require "digest"
+require_relative "../lib/solidus_nshift/version"
+
+root = File.expand_path("..", __dir__)
+path = File.join(root, "pkg/solidus_nshift-#{SolidusNshift::VERSION}.gem")
+package = Gem::Package.new(path)
+package.verify
+spec = package.spec
+abort "Package version does not match source" unless spec.version.to_s == SolidusNshift::VERSION
+abort "Package license is missing" unless spec.licenses == ["BSD-3-Clause"]
+abort "Package requires MFA metadata" unless spec.metadata["rubygems_mfa_required"] == "true"
+
+files = package.contents
+required = %w[
+  LICENSE.md README.md CHANGELOG.md SECURITY.md
+  lib/solidus_nshift.rb lib/solidus_nshift/engine.rb config/routes.rb
+  lib/generators/solidus_nshift/install/install_generator.rb
+  lib/generators/solidus_nshift/install/templates/solidus_nshift.rb
+]
+abort "Package is missing required files" unless (required - files).empty?
+abort "Package is missing migrations" unless files.grep(%r{\Adb/migrate/.*\.rb\z}).size >= 7
+unexpected = files.reject do |file|
+  %w[CHANGELOG.md CONTRIBUTING.md LICENSE.md README.md SECURITY.md].include?(file) ||
+    /\A(?:app|config|db|docs|lib)\/.*\.(?:rb|erb|yml|yaml|md)\z/.match?(file)
+end
+abort "Unexpected package files: #{unexpected.join(", ")}" unless unexpected.empty?
+abort "Package contains credentials" if files.any? { |file| /(?:credentials|master\.key|\.env)(?:\.|\/|\z)/.match?(file) }
+
+puts "Verified #{File.basename(path)}: #{files.size} files"
+puts "SHA256 #{Digest::SHA256.file(path).hexdigest}"
