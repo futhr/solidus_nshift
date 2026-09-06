@@ -2,13 +2,13 @@
 
 module SolidusNshift
   class RateSelectionsController < Spree::BaseController
-    protect_from_forgery unless: -> { request.format.json? }
+    protect_from_forgery with: :exception, unless: :token_authenticated_request?
 
     rescue_from SolidusNshift::ValidationError, with: :unprocessable
     rescue_from CanCan::AccessDenied, with: :forbidden
 
     def update
-      selection = RateSelection.includes(shipping_rate: {shipment: :order}).find(params[:id])
+      selection = rate_selection
       order = selection.shipping_rate.shipment.order
       authorize! :update, order, order_token
       order.with_lock do
@@ -31,6 +31,17 @@ module SolidusNshift
     end
 
     private
+
+    def rate_selection
+      @rate_selection ||= RateSelection.includes(shipping_rate: {shipment: :order}).find(params[:id])
+    end
+
+    def token_authenticated_request?
+      return false unless request.format.json? && order_token.present?
+
+      token = rate_selection.shipping_rate.shipment.order.guest_token
+      token.present? && ActiveSupport::SecurityUtils.secure_compare(token, order_token)
+    end
 
     def order_token
       request.headers["X-Spree-Order-Token"].presence || params[:order_token]
