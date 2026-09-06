@@ -57,9 +57,19 @@ RSpec.describe SolidusNshift::Delivery::Client do
 
     payload = booking_payload.merge(receiver: {email: "private@example.test"})
     expect { client(transport).create_shipment(payload:) }
-      .to raise_error(SolidusNshift::ValidationError, /Not valid postal code/) { |error|
+      .to raise_error(SolidusNshift::ValidationError, /HTTP 422/) { |error|
         expect(error.message).not_to include("private@example.test")
+        expect(error.provider_code).to eq("ZipCode")
       }
+  end
+
+  it "returns a successful booking even when logging is unavailable" do
+    transport = RecordedTransport.new(RecordedTransport.json(201, fixture_json("shipments/booked_single_parcel.json")))
+    logger = double("logger")
+    allow(logger).to receive(:info).and_raise(IOError, "log storage unavailable")
+    instance = described_class.new(api_key_id: "key-id", api_key_secret: "key-secret", transport:, logger:)
+
+    expect(instance.create_shipment(payload: booking_payload).id).to eq("10252317")
   end
 
   it "does not assume a booking failed after a transport timeout" do

@@ -2,6 +2,7 @@
 
 require "solidus_nshift/version"
 require "solidus_nshift/errors"
+require "solidus_nshift/instrumentation"
 require "solidus_nshift/memory_cache"
 require "solidus_nshift/json_decimal"
 require "solidus_nshift/units"

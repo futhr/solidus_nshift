@@ -32,4 +32,13 @@ RSpec.describe SolidusNshift::Http::ResponseHandling do
     expect { handler.check(response) }
       .to raise_error(SolidusNshift::ValidationError, /HTTP 400/)
   end
+
+  it "does not echo provider error bodies that contain customer details" do
+    response = RecordedTransport.json(422, {"message" => "Invalid address for private@example.test", "code" => {"email" => "private@example.test"}})
+
+    expect { handler.check(response) }.to raise_error(SolidusNshift::ValidationError) do |error|
+      expect(error.message).to eq("nShift request rejected: HTTP 422")
+      expect(error.provider_code).to be_nil
+    end
+  end
 end

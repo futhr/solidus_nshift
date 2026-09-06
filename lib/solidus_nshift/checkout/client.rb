@@ -109,7 +109,7 @@ module SolidusNshift
       end
 
       def log(path, result, response)
-        @logger&.info(
+        log_safely(
           provider: "nshift",
           api_family: "checkout",
           operation: path.split("?").first,

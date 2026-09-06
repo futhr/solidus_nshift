@@ -134,8 +134,7 @@ module SolidusNshift
     end
 
     def instrument(api_family, operation, &)
-      ActiveSupport::Notifications.instrument(
-        "solidus_nshift.request",
+      Instrumentation.request(
         api_family:,
         operation:,
         fulfillment_id: @fulfillment.id,

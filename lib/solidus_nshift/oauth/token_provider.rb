@@ -121,7 +121,7 @@ module SolidusNshift
       end
 
       def log(result)
-        @logger&.info(provider: "nshift", operation: "oauth_token", result:)
+        log_safely(provider: "nshift", operation: "oauth_token", result:)
       end
     end
   end

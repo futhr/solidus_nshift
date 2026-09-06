@@ -133,7 +133,7 @@ module SolidusNshift
       end
 
       def log(path, response)
-        @logger&.info(
+        log_safely(
           provider: "nshift",
           api_family: "shipment_data",
           operation: path,

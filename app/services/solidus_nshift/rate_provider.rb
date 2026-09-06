@@ -75,8 +75,7 @@ module SolidusNshift
     end
 
     def instrument(operation)
-      ActiveSupport::Notifications.instrument(
-        "solidus_nshift.request",
+      Instrumentation.request(
         api_family: "checkout",
         operation:,
         connection_id: @connection.id

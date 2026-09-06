@@ -34,7 +34,7 @@ module SolidusNshift
         else error_class
         end
         raise klass.new(
-          provider_error_message(body, response.status),
+          "nShift request rejected: HTTP #{response.status}",
           provider_request_id: request_id(response.headers),
           provider_code: provider_code(body),
           http_status: response.status,
@@ -59,18 +59,19 @@ module SolidusNshift
         )
       end
 
-      def provider_error_message(body, status)
+      def provider_code(body)
         value = if body.is_a?(Hash)
-          body["message"] || body["error_description"] || body["error"] || body["errors"]
+          body["code"] || body["error"]
         elsif body.is_a?(Array) && body.first.is_a?(Hash)
-          body.first["message"]
+          body.first["messageCode"]
         end
-        "nShift request rejected: #{value.is_a?(String) ? value.slice(0, 500) : "HTTP #{status}"}"
+        value.to_s if value.is_a?(String) && /\A[\w.:-]{1,100}\z/.match?(value)
       end
 
-      def provider_code(body)
-        return body["code"] || body["error"] if body.is_a?(Hash)
-        body.first["messageCode"] if body.is_a?(Array) && body.first.is_a?(Hash)
+      def log_safely(**metadata)
+        @logger&.info(metadata)
+      rescue
+        nil
       end
 
       def request_id(headers)
