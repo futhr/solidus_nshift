@@ -12,7 +12,7 @@
 | `rejected` | Provider definitively rejected the request | Correct data/credentials, then book again |
 | `canceled` | Cancellation was confirmed | No booking retry under this intent |
 
-The operation table is the audit boundary. Each retry after a definitive rejection creates a new revision and retains the prior fingerprint/error row. `in_progress` or `unknown` mutations are never automatically dispatched again.
+The operation table records each mutation attempt. Each retry after a definitive rejection creates a new revision and retains the prior fingerprint/error row. `in_progress` or `unknown` mutations are never automatically dispatched again.
 
 ## Reconciliation runbook
 
@@ -30,7 +30,7 @@ The operation table is the audit boundary. Each retry after a definitive rejecti
 - `SolidusNshift::RefreshDocumentsJob` — refreshes metadata only and cannot create a shipment.
 - `SolidusNshift::CancelFulfillmentJob` — persisted cancellation mutation.
 
-Configure the application's Active Job backend for durable production queues. Alert on `solidus_nshift.enqueue_failed`, jobs that exhaust retries, unbooked intents older than the queue latency objective, and fulfillments remaining `booking` or `reconciliation_pending` beyond the merchant's service objective. Enqueue-failure notifications contain identifiers and an error class, never serialized job arguments.
+Configure the application's Active Job backend for durable production queues. Alert on `solidus_nshift.enqueue_failed`, jobs that exhaust retries, unbooked intents older than the expected queue delay, and fulfillments remaining `booking` or `reconciliation_pending` beyond the expected provider response time. Enqueue-failure notifications contain identifiers and an error class, never serialized job arguments.
 
 ## Labels
 
@@ -46,8 +46,10 @@ Tracking is optional. A first sync searches Shipment Data by the stable Delivery
 
 Subscribe to `solidus_nshift.request` and `solidus_nshift.enqueue_failed` with `ActiveSupport::Notifications`. Payload metadata includes API family or queue operation, connection/fulfillment identifiers, and error class; credentials, addresses, and job arguments are not emitted.
 
-Rails parameter filtering includes all credential field names. Keep application log access restricted and never log provider request bodies at the HTTP transport boundary.
+Request notifications omit provider error messages and exception objects. Provider error codes are retained when they have a valid code format. Exceptions raised by custom application code can still reach job backends or the operation history, so custom transports and parcel builders should never put secrets in exception messages.
+
+Rails parameter filtering includes credential field names. Keep application log access restricted and never log provider request bodies at the HTTP transport boundary.
 
 ## Credential rotation
 
-Enter only the new secret in the connection form; blank secret fields retain existing encrypted values. OAuth access tokens are cached per connection/capability and expire automatically. For immediate token invalidation, restart processes or clear the configured cache after rotating credentials.
+Enter only the new secret in the connection form; blank secret fields retain existing encrypted values. OAuth cache keys include a digest of both credentials, so changing the client ID or secret causes the next request to acquire a new token. Older entries expire normally. For a revoked token with unchanged credentials, clear the configured shared cache; restarting workers does not clear a shared cache.

@@ -27,7 +27,7 @@ RSpec.describe SolidusNshift::PersistDocuments do
   end
 
   it "survives concurrent insertion of the same provider document", :concurrency do
-    skip "unique-key concurrency is certified on PostgreSQL" unless ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
+    skip "unique-key concurrency is tested on PostgreSQL" unless ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
 
     fulfillment_id = fulfillment.id
     ready = Queue.new

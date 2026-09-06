@@ -1,12 +1,12 @@
 # nShift test-account certification
 
-There is no public nShift Docker image or local emulator for the APIs used by this gem. The automated suite therefore uses synthetic, sanitized responses for repeatable contract and failure testing. Before production, run this checklist against an nShift-provisioned test account.
+This repository has no nShift emulator or recorded test-account certification. The automated suite therefore uses synthetic, sanitized responses for repeatable contract and failure testing. Before production, run this checklist against an nShift-provisioned test account.
 
 The hosted Shipment Server demo is for a different nShift product and cannot certify this integration.
 
 ## Access to request
 
-Ask nShift support or the merchant's account contact for only the capabilities being enabled:
+Ask nShift support or the merchant's account contact for the capabilities being enabled:
 
 - **Checkout:** a Portal test tenant, a Checkout connection with Swedish home and pickup options, and an OAuth client allowed to use the Public Checkout API.
 - **Delivery:** Delivery REST/APIConnect access, an API key, developer ID, sender Quick ID, service codes, label media, and the REST API Shipment History entitlement used for safe reconciliation.

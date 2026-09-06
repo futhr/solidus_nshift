@@ -5,7 +5,9 @@
 [![Codecov](https://codecov.io/gh/futhr/solidus_nshift/graph/badge.svg)](https://codecov.io/gh/futhr/solidus_nshift)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE.md)
 
-`solidus_nshift` adds nShift checkout and fulfillment to Solidus. It keeps provider traffic out of checkout models, records every shipment mutation before dispatch, and gives operators a safe path through uncertain provider outcomes.
+`solidus_nshift` adds nShift delivery options, pickup points, booking, labels, and tracking to Solidus. Shipment requests are recorded before they are sent, so a timeout can be investigated without accidentally booking twice.
+
+This is an unreleased alpha. Automated tests use synthetic responses; production use still requires the [nShift test-account checks](docs/sandbox-certification.md).
 
 ## Features
 
@@ -19,17 +21,19 @@
 
 | Ruby | Rails | Solidus |
 | --- | --- | --- |
-| 3.2 | 7.1 | 4.6 |
-| 3.3 or 3.4 | 7.2 | 4.7 |
+| 3.3 or 3.4 | 8.1 | 4.7 |
+| 3.2 (legacy compatibility) | 7.2 | 4.6 |
 
-CI runs the suite on SQLite, PostgreSQL 17, and MySQL 8.4. PostgreSQL also runs the row-lock and unique-key concurrency examples.
+CI covers SQLite, PostgreSQL 17, and MySQL 8.4, including PostgreSQL concurrency tests. New applications should use Ruby 3.3+ and Rails 8.1; the older row is a compatibility check, not an upstream support commitment. Ruby 3.2 and Rails 7.2 have reached the end of their published support periods. See the [Ruby branches](https://www.ruby-lang.org/en/downloads/branches/) and [Rails maintenance policy](https://guides.rubyonrails.org/maintenance_policy.html).
+
+The admin screens require `solidus_backend`. Core-only stores can use the services and pickup endpoint, but need to provide their own admin UI. `solidus_admin` screens are not included.
 
 ## Installation
 
-Add the gem to the application:
+Until the first RubyGems publication, use a local checkout in the application:
 
 ```ruby
-gem "solidus_nshift", ">= 0.1.0.alpha.1", "< 0.2"
+gem "solidus_nshift", path: "../solidus_nshift"
 ```
 
 Install it and copy the migrations:
@@ -70,12 +74,12 @@ Content-Type: application/json
 
 The endpoint uses Solidus order authorization and rejects stale, completed, unselected, or unoffered choices.
 
-## Runtime guarantees
+## Failure handling
 
 - Checkout errors fail closed; the gem never invents a zero, stale, or guessed rate.
 - Booking and cancellation are fingerprinted and persisted before the provider request.
 - Ambiguous mutations enter reconciliation instead of being sent again blindly.
-- Secrets, addresses, tokens, and label bodies are excluded from instrumentation.
+- Request notifications contain operation identifiers and error classes, without exception objects or provider error messages.
 
 ## Documentation
 
@@ -84,19 +88,21 @@ The endpoint uses Solidus order authorization and rejects stale, completed, unse
 - [nShift test-account certification](docs/sandbox-certification.md)
 - [Migration from `spree_unifaun`](docs/migration-from-spree-unifaun.md)
 - [Release process](docs/releasing.md)
+- [September 2026 audit and remaining checks](docs/audit-2026-09-06.md)
 - [API product decision](docs/adr/0001-nshift-api-products.md)
 
 ## Development
 
 ```sh
 bin/setup
-ruby -S bundle exec rake extension:test_app
-ruby -S bundle exec rspec
-ruby -S bundle exec rubocop
-ruby -S bundle exec rake build
+bundle exec rake extension:test_app
+bundle exec rspec
+bundle exec rubocop
+bundle exec rake build
+ruby bin/check_package
 ```
 
-Tests use synthetic provider fixtures and no real credentials. nShift does not publish a local sandbox for these APIs, so each enabled product still needs a final run with an nShift-provisioned test account.
+Tests block outbound network calls and use synthetic fixtures. See [CONTRIBUTING.md](CONTRIBUTING.md) for dependency audits and alternative compatibility bundles.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before changing a provider contract, and report vulnerabilities through [SECURITY.md](SECURITY.md).
 

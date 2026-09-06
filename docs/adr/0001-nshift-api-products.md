@@ -14,7 +14,7 @@ The supported products researched for this release are:
 - Shipment Data at `https://api.nshiftportal.com/track/shipmentdata`, using Portal OAuth credentials that may require separate entitlement.
 
 Shipment Server is a separate nShift product and is not a hidden fallback.
-Its hosted demo environment cannot test these adapters, and there is no public local container for them.
+Its hosted demo environment does not exercise these adapters. This repository uses synthetic fixtures instead.
 
 Manifests, consolidated shipments, Delivery Cloud, dangerous-goods fields, and customs/non-EU shipment data are outside the initial release.
 
@@ -22,7 +22,7 @@ Manifests, consolidated shipments, Delivery Cloud, dangerous-goods fields, and c
 
 The gem uses independent `Checkout::Client`, `Delivery::Client`, and `ShipmentData::Client` adapters and independent capability credentials.
 
-Checkout is the rating/session authority and creates the selected partial-shipment resource after Solidus order completion. Delivery REST is the selected v1 book-and-print adapter: it sends the documented `shipmentPrint` object (`printConfig` plus nested `shipment`), creates one non-return, non-consolidated shipment, lists/retrieves PDF or ZPL documents, and cancels shipments. Shipment Data is optional and read-only for order-number search and shipment/package events.
+Checkout is the rating/session authority and creates the selected partial-shipment resource after Solidus order completion. Delivery REST is the selected v1 book-and-print adapter: it sends the documented `shipmentPrint` object (`printConfig` plus nested `shipment`), creates one non-return, non-consolidated shipment, lists/retrieves PDF or ZPL documents, and cancels shipments. Shipment Data is optional and used here only for order-number search and shipment/package events. The provider API also offers mutations, which this gem does not use.
 
 Test/live separation is represented by different connection records. Delivery's `test` request property defaults to true; it prints TEST labels and disables EDI forwarding. Checkout and Shipment Data environment access is determined by the issued Portal credentials and connection configuration.
 

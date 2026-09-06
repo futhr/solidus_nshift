@@ -42,7 +42,7 @@ RSpec.describe SolidusNshift::Operation, type: :model do
   end
 
   it "allows exactly one concurrent database worker to claim the operation", :concurrency do
-    skip "row-lock concurrency is certified on PostgreSQL" unless ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
+    skip "row-lock concurrency is tested on PostgreSQL" unless ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
 
     operation_id = operation.id
     ready = Queue.new
