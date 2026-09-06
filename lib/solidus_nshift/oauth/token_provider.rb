@@ -109,7 +109,8 @@ module SolidusNshift
       end
 
       def cache_key
-        @cache_key ||= "solidus_nshift:oauth:#{@cache_namespace}:#{Digest::SHA256.hexdigest(@client_id)}"
+        credentials = JSON.generate([@client_id, @client_secret])
+        @cache_key ||= "solidus_nshift:oauth:#{@cache_namespace}:#{Digest::SHA256.hexdigest(credentials)}"
       end
 
       def validate_configuration!

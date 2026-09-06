@@ -47,12 +47,24 @@ RSpec.describe SolidusNshift::OAuth::TokenProvider do
   end
 
   it "replaces a malformed cached value" do
-    key = "solidus_nshift:oauth:default:#{Digest::SHA256.hexdigest("checkout-client")}"
+    digest = Digest::SHA256.hexdigest(JSON.generate(["checkout-client", "checkout-secret"]))
+    key = "solidus_nshift:oauth:default:#{digest}"
     cache.write(key, "invalid")
     transport = RecordedTransport.new(token_response)
 
     expect(provider(transport:).token.value).to eq("sanitized-checkout-token")
     expect(transport.requests.length).to eq(1)
+  end
+
+  it "acquires a new token after secret rotation in a shared cache" do
+    transport = RecordedTransport.new(token_response, RecordedTransport.json(200, {"access_token" => "rotated-token", "expires_in" => 3600}))
+    provider(transport:).token
+    rotated = described_class.new(
+      client_id: "checkout-client", client_secret: "new-secret", cache:, clock:, transport:
+    )
+
+    expect(rotated.token.value).to eq("rotated-token")
+    expect(transport.requests.length).to eq(2)
   end
 
   it "uses bounded backoff for transient failures" do
