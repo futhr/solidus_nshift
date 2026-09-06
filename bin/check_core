@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+require "rails/all"
+require "solidus_nshift"
+require "tmpdir"
+
+ENV["SOLIDUS_PREFERENCES_MASTER_KEY"] ||= "0" * 32
+
+Dir.mktmpdir("solidus-nshift-core") do |root|
+  FileUtils.mkdir_p(File.join(root, "config"))
+  FileUtils.mkdir_p(File.join(root, "app/assets/config"))
+  FileUtils.mkdir_p(File.join(root, "app/controllers"))
+  File.write(File.join(root, "app/controllers/application_controller.rb"), "class ApplicationController < ActionController::Base; end\n")
+  File.write(File.join(root, "app/assets/config/manifest.js"), "")
+  File.write(File.join(root, "config/database.yml"), "test:\n  adapter: sqlite3\n  database: ':memory:'\n")
+  ENV["RAILS_ENV"] = "test"
+  application = Class.new(Rails::Application) do
+    config.eager_load = true
+    config.secret_key_base = "core-boot-check"
+    config.global_id.app = "solidus-nshift-core"
+    config.logger = Logger.new(File::NULL)
+    config.active_support.deprecation = :stderr
+    config.active_storage.service = :local
+    config.active_storage.service_configurations = {"local" => {"service" => "Disk", "root" => File.join(root, "storage")}}
+  end
+  application.config.root = root
+  application.initialize!
+  Rails.autoloaders.each(&:eager_load)
+
+  abort "Backend loaded in core-only check" if SolidusSupport.backend_available?
+  routes = SolidusNshift::Engine.routes.routes
+  abort "Backend routes exposed without backend" if routes.any? { |route| route.defaults[:controller].to_s.include?("/admin/") }
+  puts "Core-only engine boot and eager loading passed"
+end

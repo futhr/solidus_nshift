@@ -1,0 +1,7 @@
+# frozen_string_literal: true
+
+eval_gemfile "runtime_audit.gemfile"
+
+# Host application dependencies required to boot Solidus without its backend.
+gem "sprockets-rails"
+gem "sqlite3", "~> 2.0"
