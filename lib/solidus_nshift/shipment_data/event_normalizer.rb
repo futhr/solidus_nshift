@@ -32,7 +32,10 @@ module SolidusNshift
       def integer_or_nil(value)
         return if value.nil?
 
-        Integer(value)
+        integer = Integer(value)
+        raise ArgumentError if value.is_a?(Numeric) && value != integer
+
+        integer
       rescue ArgumentError, TypeError
         raise MalformedResponseError, "nShift Shipment Data normalized status ID was invalid"
       end

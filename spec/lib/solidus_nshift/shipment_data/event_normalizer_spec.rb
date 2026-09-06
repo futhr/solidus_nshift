@@ -22,6 +22,13 @@ RSpec.describe SolidusNshift::ShipmentData::EventNormalizer do
     expect(event.raw_code).to eq("9001")
   end
 
+  it "rejects fractional status IDs instead of truncating them to a delivered status" do
+    value = fixture_json("tracking/delivered.json").fetch("events").first
+
+    expect { described_class.new.call(value.merge("normalizedStatusId" => BigDecimal("3000.5"))) }
+      .to raise_error(SolidusNshift::MalformedResponseError, /status ID/)
+  end
+
   it "rejects malformed timestamps rather than silently coercing them" do
     expect do
       described_class.new.call(

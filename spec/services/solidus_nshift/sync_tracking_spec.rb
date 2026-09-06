@@ -28,7 +28,7 @@ RSpec.describe SolidusNshift::SyncTracking do
   end
 
   before do
-    allow(data[:connection]).to receive(:shipment_data_client).and_return(client)
+    allow_any_instance_of(SolidusNshift::Connection).to receive(:shipment_data_client).and_return(client)
     allow(client).to receive(:find_by_order_number).and_return(
       [{"orderNumber" => reference, "uuid" => "shipment-uuid-1"}]
     )
@@ -69,5 +69,27 @@ RSpec.describe SolidusNshift::SyncTracking do
     expect(client).to have_received(:find_by_order_number) do |start_time:, end_time:, **|
       expect(end_time - start_time).to be <= 31.days
     end
+  end
+
+  it "reloads state changed by another worker before importing an older response" do
+    fulfillment.update!(shipment_data_uuid: "shipment-uuid-1")
+    allow(client).to receive(:events) do
+      SolidusNshift::Fulfillment.find(fulfillment.id).update!(tracking_status: "delivered")
+      [in_transit]
+    end
+
+    described_class.new(fulfillment:).call
+
+    expect(fulfillment.reload.tracking_status).to eq("delivered")
+    expect(fulfillment.tracking_events.count).to eq(1)
+  end
+
+  it "uses event time to break equal status priorities" do
+    exception = in_transit.with(external_id: "exception-1", status: "exception", occurred_at: in_transit.occurred_at - 60)
+    allow(client).to receive(:events).and_return([exception, in_transit])
+
+    described_class.new(fulfillment:).call
+
+    expect(fulfillment.reload.tracking_status).to eq("in_transit")
   end
 end

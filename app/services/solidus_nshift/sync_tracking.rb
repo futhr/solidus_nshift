@@ -10,7 +10,7 @@ module SolidusNshift
     def call
       locate_shipment! if @fulfillment.shipment_data_uuid.blank?
       events = @client.events(shipment_uuid: @fulfillment.shipment_data_uuid)
-      Fulfillment.transaction do
+      @fulfillment.with_lock do
         events.each { |event| persist_event(event) }
         update_tracking_status
         @fulfillment.update!(tracking_synced_at: Time.current)
@@ -52,10 +52,11 @@ module SolidusNshift
       current = @fulfillment.tracking_status
       return if ShipmentData::Event::TERMINAL.include?(current)
 
-      @fulfillment.tracking_events.reset
-      candidate = @fulfillment.tracking_events.reject { |event| event.status == "unknown" }.max_by do |event|
-        [ShipmentData::Event::PRECEDENCE.fetch(event.status, 0), event.occurred_at]
+      priority = ShipmentData::Event::PRECEDENCE.reduce(Arel::Nodes::Case.new(TrackingEvent.arel_table[:status])) do |expression, (status, rank)|
+        expression.when(status).then(rank)
       end
+      candidate = @fulfillment.tracking_events.where.not(status: "unknown")
+        .order(priority.desc, occurred_at: :desc).first
       return unless candidate
 
       @fulfillment.tracking_status = candidate.status
