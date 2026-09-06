@@ -11,9 +11,19 @@ module SolidusNshift
     end
 
     def call
+      unless @connection&.active? && @connection.checkout_enabled? && @connection.store_id == @package.shipment.order.store_id
+        raise ConfigurationError, "nShift Checkout connection is unavailable for this store"
+      end
+
       request = Solidus::PackageSerializer.new(package: @package, calculator: @calculator).call
-      session_and_options = cache.fetch(cache_key(request), expires_in: SolidusNshift.configuration.rate_cache_ttl) do
-        fetch_options(request)
+      key = cache_key(request)
+      session_and_options = cache.read(key)
+      unless session_and_options && session_and_options.fetch(:session).expires_at > SolidusNshift.configuration.clock.call
+        session_and_options = fetch_options(request)
+        remaining = session_and_options.fetch(:session).expires_at - SolidusNshift.configuration.clock.call
+        raise StaleSessionError, "nShift returned an expired checkout session" unless remaining.positive?
+
+        cache.write(key, session_and_options, expires_in: [SolidusNshift.configuration.rate_cache_ttl, remaining].min)
       end
       session = session_and_options.fetch(:session)
       option = filter_options(session_and_options.fetch(:options)).min_by do |candidate|
@@ -61,7 +71,7 @@ module SolidusNshift
     end
 
     def cache_key(request)
-      "solidus_nshift:rates:#{@connection.id}:#{request.context_digest}"
+      "solidus_nshift:rates:#{@connection.cache_key_with_version}:#{request.context_digest}"
     end
 
     def instrument(operation)

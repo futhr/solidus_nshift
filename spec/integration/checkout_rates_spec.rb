@@ -131,6 +131,32 @@ RSpec.describe "nShift Checkout rates" do
     expect(client).to have_received(:create_session).twice
   end
 
+  it "does not send another store's order to the configured connection" do
+    connection.update!(store: create(:store))
+
+    expect(estimator.shipping_rates(package, false)).to be_empty
+    expect(client).not_to have_received(:create_session)
+  end
+
+  it "invalidates rates and persisted quote context when the remote checkout connection changes" do
+    first_digest = estimator.shipping_rates(package, false).first.nshift_selection.context_digest
+    connection.update!(preferred_checkout_connection_id: "connection-2")
+
+    second_digest = estimator.shipping_rates(package, false).first.nshift_selection.context_digest
+
+    expect(second_digest).not_to eq(first_digest)
+    expect(client).to have_received(:create_session).with(connection_id: "connection-2", attributes: {})
+  end
+
+  it "never returns a cached session past its expiry even with a longer rate TTL" do
+    SolidusNshift.configuration.rate_cache_ttl = 1.day
+    estimator.shipping_rates(package, false)
+    SolidusNshift.configuration.clock = -> { session.expires_at + 1 }
+
+    expect(estimator.shipping_rates(package, false)).to be_empty
+    expect(client).to have_received(:create_session).at_least(:twice)
+  end
+
   it "fails closed for provider and currency errors while preserving local rates" do
     local_method = create(
       :shipping_method,

@@ -20,6 +20,7 @@ module SolidusNshift
           context: {
             store_id: order.store_id,
             connection_id: @calculator.preferred_connection_id,
+            checkout_connection_id: @calculator.connection&.preferred_checkout_connection_id,
             shipment_id: @package.shipment&.id,
             stock_location_id: @package.stock_location&.id,
             item_ids: @package.contents.map { |content| [content.variant.id, content.quantity] }.sort

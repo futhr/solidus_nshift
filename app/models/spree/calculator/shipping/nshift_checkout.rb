@@ -27,8 +27,10 @@ module Spree
         ADMIN_PREFERENCE_NAMES
       end
 
-      def available?(_package)
-        connection&.active? && connection.checkout_enabled?
+      def available?(package)
+        record = connection
+        record&.active? && record.checkout_enabled? &&
+          (!package || record.store_id == package.shipment.order.store_id)
       end
 
       def compute_package(_package)

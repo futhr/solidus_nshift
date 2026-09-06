@@ -14,6 +14,10 @@ module SolidusNshift
       unless selection && calculator.is_a?(Spree::Calculator::Shipping::NshiftCheckout)
         raise ValidationError, "shipment does not have a selected nShift rate"
       end
+      unless selection.connection.active? && selection.connection.store_id == @shipment.order.store_id &&
+          selection.connection_id == calculator.preferred_connection_id
+        raise ValidationError, "selected nShift connection is unavailable for this store"
+      end
       unless selection.selection_complete?
         raise ValidationError, "selected nShift pickup option requires a service point"
       end
