@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# The pg source gem links against this exact maintained libpq, not a bundled old client.
+. /etc/os-release
+case "$ID:$VERSION_ID" in
+  ubuntu:24.04) package_version=18.6-1.pgdg24.04+2 ;;
+  debian:12) package_version=18.6-1.pgdg12+2 ;;
+  *) echo "PostgreSQL client provisioning supports Ubuntu 24.04 and Debian 12" >&2; exit 1 ;;
+esac
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+key_file=$(mktemp)
+trap 'rm -f "$key_file"' EXIT
+curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "$key_file"
+printf '%s  %s\n' 0144068502a1eddd2a0280ede10ef607d1ec592ce819940991203941564e8e76 "$key_file" | sha256sum --check
+sudo install -m 0644 "$key_file" /usr/share/keyrings/postgresql.asc
+printf 'deb [signed-by=/usr/share/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" | sudo tee /etc/apt/sources.list.d/pgdg.list
+sudo apt-get update
+sudo apt-get install -y "libpq5=$package_version" "libpq-dev=$package_version" "postgresql-client-18=$package_version"
+/usr/lib/postgresql/18/bin/psql --version

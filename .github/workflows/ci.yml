@@ -1,23 +1,80 @@
 name: CI
 
 on:
-  push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      full_matrix:
+        description: Run the additional locally qualified compatibility profiles
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  postgres:
+    name: PostgreSQL 18.6, tests and quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BUNDLE_BUILD__PG: --with-pg-config=/usr/bin/pg_config
+      COVERAGE: "true"
+      DB: postgresql
+      DB_HOST: localhost
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SOLIDUS_VERSION: "4.7"
+      RAILS_VERSION: "8.1"
+      RAILS_ENV: test
+      SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL 18.6 client
+        run: bin/setup-postgresql-client
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: bundle exec rake extension:test_app
+      - run: bundle exec rspec
+
+      - run: bin/rails zeitwerk:check
+        working-directory: spec/dummy
+      - run: bundle exec rubocop
+      - run: bundle exec rake build
+      - run: ruby bin/check_package
+      - name: Audit development and runtime dependencies
+        run: |
+          gem install bundler-audit --no-document
+          ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --update
+
   test:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_matrix
     name: Ruby ${{ matrix.ruby }} / Solidus ${{ matrix.solidus }} / Rails ${{ matrix.rails }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
-      fail-fast: false
+      max-parallel: 2
+      fail-fast: true
       matrix:
         include:
           - ruby: "3.2"
@@ -47,77 +104,9 @@ jobs:
       - run: bin/rails zeitwerk:check
         working-directory: spec/dummy
       - run: bundle exec rspec
-      - name: Upload coverage to Codecov
-        if: matrix.ruby == '3.3' && github.event_name == 'push'
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          disable_search: true
-          fail_ci_if_error: true
-          files: coverage/lcov/solidus_nshift.lcov
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  quality:
-    name: Lint and build
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      SOLIDUS_VERSION: "4.7"
-      RAILS_VERSION: "8.1"
-      SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-      - run: bundle exec rubocop
-      - run: bundle exec rake build
-      - run: ruby bin/check_package
-      - name: Audit development tools (upstream Puma constraint)
-        continue-on-error: true
-        run: |
-          gem install bundler-audit --no-document
-          ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --update
-
-  postgres:
-    name: PostgreSQL concurrency and portability
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DB: postgresql
-      DB_HOST: localhost
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      SOLIDUS_VERSION: "4.7"
-      RAILS_VERSION: "8.1"
-      RAILS_ENV: test
-      SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-      - run: bundle exec rake extension:test_app
-      - run: bundle exec rspec
 
   mysql:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_matrix
     name: MySQL portability
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -154,6 +143,7 @@ jobs:
       - run: bundle exec rspec
 
   audit:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_matrix
     name: Dependency audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -171,6 +161,7 @@ jobs:
       - run: ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --gemfile-lock gemfiles/runtime_audit.gemfile.lock --update
 
   core:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_matrix
     name: Core-only installation
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -1,0 +1,7 @@
+# solidus_dev_support 2.12 requires Puma < 7, while these fixes start at 7.2.1.
+# Both require PROXY protocol v1, which this development server does not enable.
+# Puma is absent from the published runtime bundle. Remove when the helper
+# accepts patched Puma; all other advisories remain failures.
+ignore:
+  - CVE-2026-47736
+  - CVE-2026-47737

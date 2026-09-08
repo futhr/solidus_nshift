@@ -33,3 +33,23 @@ BUNDLE_GEMFILE=gemfiles/core.gemfile ruby bin/check_core
 Provider contract changes need an official nShift source, a synthetic fixture, and tests for the new response shape and failure paths. Mutation changes must demonstrate that ambiguous outcomes cannot cause duplicate dispatches. Document any account entitlement or recovery step that operators need.
 
 Use focused Conventional Commits. Avoid speculative abstractions, compatibility aliases for `spree_unifaun`, and tests that only repeat the implementation. Follow the [release runbook](docs/releasing.md) for packaging and publishing.
+
+## PostgreSQL 18.6 and local validation
+
+The PostgreSQL baseline is 18.6 with `pg` 1.6.3 or later in the 1.6 series.
+Build the source gem against PostgreSQL 18.6/libpq 18.6. On Debian 12 or Ubuntu
+24.04, `bin/setup-postgresql-client` installs the pinned PGDG client. On macOS,
+use `brew install postgresql@18` and set `BUNDLE_BUILD__PG` to
+`--with-pg-config=$(brew --prefix postgresql@18)/bin/pg_config`.
+
+Set `DB=postgresql`, `DB_HOST`, `PGPORT`, `DB_USERNAME`, and `DB_PASSWORD`
+before `bundle install` and regenerating the dummy application. Run the full
+RSpec suite, eager-loading check, style, audit, and package checks locally.
+Use an isolated test database; the dummy generator creates and migrates it.
+Verify `PG.library_version` and the server's `server_version_num` are `180006`.
+
+The automatic PR workflow uses one PostgreSQL 18.6 lane and one coverage run.
+Additional Ruby/Rails and database profiles are explicit manual `full_matrix`
+checks. Run them locally for affected compatibility changes; do not dispatch
+Actions to iterate on failures. There are no duplicate push or scheduled test
+runs.

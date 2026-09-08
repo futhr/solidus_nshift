@@ -16,7 +16,7 @@ rails_requirements << ">= 7.2.3.2" if rails_series == "7.2"
 gem "rails", *rails_requirements
 
 case ENV.fetch("DB", "sqlite")
-when "postgresql" then gem "pg"
+when "postgresql" then gem "pg", "~> 1.6.3", force_ruby_platform: true
 when "mysql" then gem "mysql2"
 else
   gem "sqlite3", "~> 2.0"

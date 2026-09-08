@@ -24,7 +24,7 @@ This is an unreleased alpha. Automated tests use synthetic responses; production
 | 3.3 or 3.4 | 8.1 | 4.7 |
 | 3.2 (legacy compatibility) | 7.2 | 4.6 |
 
-CI covers SQLite, PostgreSQL 17, and MySQL 8.4, including PostgreSQL concurrency tests. New applications should use Ruby 3.3+ and Rails 8.1; the older row is a compatibility check, not an upstream support commitment. Ruby 3.2 and Rails 7.2 have reached the end of their published support periods. See the [Ruby branches](https://www.ruby-lang.org/en/downloads/branches/) and [Rails maintenance policy](https://guides.rubyonrails.org/maintenance_policy.html).
+The PostgreSQL baseline is 18.6, including concurrency tests. Automatic PR CI runs one current PostgreSQL lane; SQLite, MySQL 8.4, and the wider language matrix remain manual profiles. New applications should use Ruby 3.3+ and Rails 8.1; the older row is a compatibility check, not an upstream support commitment. Ruby 3.2 and Rails 7.2 have reached the end of their published support periods. See the [Ruby branches](https://www.ruby-lang.org/en/downloads/branches/) and [Rails maintenance policy](https://guides.rubyonrails.org/maintenance_policy.html).
 
 The admin screens require `solidus_backend`. Core-only stores can use the services and pickup endpoint, but need to provide their own admin UI. `solidus_admin` screens are not included.
 
