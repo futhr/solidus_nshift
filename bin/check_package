@@ -3,6 +3,7 @@
 
 require "rubygems/package"
 require "digest"
+require "tmpdir"
 require_relative "../lib/solidus_nshift/version"
 
 root = File.expand_path("..", __dir__)
@@ -14,7 +15,35 @@ abort "Package version does not match source" unless spec.version.to_s == Solidu
 abort "Package license is missing" unless spec.licenses == ["BSD-3-Clause"]
 abort "Package requires MFA metadata" unless spec.metadata["rubygems_mfa_required"] == "true"
 
+source_spec = Gem::Specification.load(File.join(root, "solidus_nshift.gemspec"))
+abort "Could not load source gemspec" unless source_spec
+
+%i[
+  name version authors email summary description homepage licenses metadata
+  platform require_paths required_ruby_version required_rubygems_version
+  dependencies extensions executables
+].each do |attribute|
+  unless spec.public_send(attribute) == source_spec.public_send(attribute)
+    abort "Packaged #{attribute} does not match the source gemspec"
+  end
+end
+
 files = package.contents
+abort "Packaged file list does not match source" unless spec.files.sort == source_spec.files.sort
+abort "Archive contents do not match source" unless files.sort == source_spec.files.sort
+
+Dir.mktmpdir("solidus-nshift-package-") do |directory|
+  package.extract_files(directory)
+  source_spec.files.each do |relative_path|
+    source = File.join(root, relative_path)
+    extracted = File.join(directory, relative_path)
+    unless File.file?(extracted) && !File.symlink?(extracted) &&
+        Digest::SHA256.file(extracted) == Digest::SHA256.file(source)
+      abort "Packaged file differs from source: #{relative_path}"
+    end
+  end
+end
+
 required = %w[
   LICENSE.md README.md CHANGELOG.md SECURITY.md
   lib/solidus_nshift.rb lib/solidus_nshift/engine.rb config/routes.rb
