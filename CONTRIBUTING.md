@@ -1,6 +1,6 @@
 # Contributing
 
-Use Ruby 3.3 or 3.4 for development, with Node.js available for the legacy backend assets. The default bundle uses published Solidus 4.7 and Rails 8.1. Tests must use synthetic credentials, addresses and labels; outbound network calls are disabled.
+Use Ruby 3.3, 3.4, or 4.0 for development, with Node.js available for the legacy backend assets. The default bundle uses published Solidus 4.8 and Rails 8.1. Tests must use synthetic credentials, addresses and labels; outbound network calls are disabled.
 
 ```sh
 bin/setup
@@ -36,7 +36,7 @@ Use focused Conventional Commits. Avoid speculative abstractions, compatibility 
 
 ## PostgreSQL 18.6 and local validation
 
-The PostgreSQL baseline is 18.6 with `pg` 1.6.3 or later in the 1.6 series.
+The PostgreSQL baseline is 18.6 with `pg` 1.7.0 or later in the 1.7 series.
 Build the source gem against PostgreSQL 18.6/libpq 18.6. On Debian 12 or Ubuntu
 24.04, `bin/setup-postgresql-client` installs the pinned PGDG client. On macOS,
 use `brew install postgresql@18` and set `BUNDLE_BUILD__PG` to

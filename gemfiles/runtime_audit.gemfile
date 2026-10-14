@@ -4,6 +4,6 @@ source "https://rubygems.org"
 
 # Audit the dependencies shipped to applications, independently of the
 # development-only Solidus test harness.
-gem "rails", "~> 8.1.0"
-gem "solidus_core", "~> 4.7.0"
+gem "rails", "~> 8.1.0", ">= 8.1.4"
+gem "solidus_core", "~> 4.8.0"
 gem "solidus_nshift", path: ".."

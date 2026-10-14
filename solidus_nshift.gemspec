@@ -32,11 +32,14 @@ Gem::Specification.new do |spec|
   spec.add_dependency "solidus_core", ">= 4.6", "< 5"
   spec.add_dependency "activerecord", ">= 7.2", "< 8.2"
   spec.add_dependency "solidus_support", ">= 0.15", "< 1"
+  spec.add_dependency "net-http", "~> 0.10"
+  # Solidus 4.8 still requires kaminari/activerecord when booting core.
+  spec.add_dependency "kaminari-activerecord", "~> 1.2"
 
   spec.add_development_dependency "solidus_dev_support", "~> 2.12"
   spec.add_development_dependency "rspec", "~> 3.13"
   spec.add_development_dependency "rubocop-rake", "~> 0.7"
   spec.add_development_dependency "rubocop-rails-omakase", "~> 1.1"
   spec.add_development_dependency "simplecov-lcov", "~> 0.9"
-  spec.add_development_dependency "webmock", "~> 3.24"
+  spec.add_development_dependency "webmock", "~> 3.32"
 end

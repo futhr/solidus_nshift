@@ -2,9 +2,11 @@
 
 ## 0.1.0.alpha.1 — Unreleased
 
-- Qualify PostgreSQL 18.6 with a source-built pg 1.6.3 client; consolidate automatic CI into one PR job and retain the broader profiles manually.
+- Qualify PostgreSQL 18.6 with a source-built pg 1.7 client; consolidate automatic CI into one PR job and retain the broader profiles manually.
 
-- Test published Solidus 4.7 with Rails 8.1 and refresh runtime dependencies.
+- Test published Solidus 4.8 with Rails 8.1.4 and refresh runtime, development, CI action, and PostgreSQL image dependencies.
+- Classify malformed Net::HTTP 0.10 responses as transport failures for reads and unknown outcomes for mutations.
+- Declare the pagination dependency still loaded by Solidus 4.8 core for core-only hosts.
 - Prevent implicit HTTP mutation retries, defer booking until order commit, and recover interrupted cancellations.
 - Preserve JSON decimal precision and validate store, connection, and session context for quotes.
 - Apply record-level admin permissions and require valid order tokens for CSRF exemptions.

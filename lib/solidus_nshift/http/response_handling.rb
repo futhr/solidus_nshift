@@ -88,7 +88,8 @@ module SolidusNshift
       rescue Timeout::Error => error
         klass = mutation ? TimeoutUnknownOutcome : TransportError
         raise klass.new("nShift request timed out", provider_code: error.class.name)
-      rescue SocketError, IOError, OpenSSL::SSL::SSLError, SystemCallError => error
+      rescue SocketError, IOError, OpenSSL::SSL::SSLError, SystemCallError,
+        Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError => error
         klass = mutation ? TimeoutUnknownOutcome : TransportError
         raise klass.new("nShift connection failed", provider_code: error.class.name)
       end

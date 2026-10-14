@@ -16,7 +16,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      SOLIDUS_VERSION: "4.7"
+      SOLIDUS_VERSION: "4.8"
       RAILS_VERSION: "8.1"
       RAILS_ENV: test
       SOLIDUS_PREFERENCES_MASTER_KEY: 0123456789abcdef0123456789abcdef
@@ -25,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1, 2026-07-22
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
         with:
           ruby-version: "3.3"
           bundler-cache: true
@@ -49,6 +49,6 @@ jobs:
           BUNDLE_GEMFILE=gemfiles/runtime_audit.gemfile bundle lock
           gem install bundler-audit --no-document
           ruby -e 'exec File.join(Gem.bindir, "bundle-audit"), *ARGV' -- check --gemfile-lock gemfiles/runtime_audit.gemfile.lock --update
-      - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1, 2026-08-08
+      - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1.4.1
         with:
           attestations: true
