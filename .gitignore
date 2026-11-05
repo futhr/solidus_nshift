@@ -7,3 +7,4 @@
 /.env
 *.gem
 Gemfile.lock
+/.claude/
