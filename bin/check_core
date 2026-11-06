@@ -23,6 +23,7 @@ Dir.mktmpdir("solidus-nshift-core") do |root|
     config.logger = Logger.new(File::NULL)
     config.active_support.deprecation = :stderr
     config.active_storage.service = :local
+    config.active_storage.variant_processor = :vips
     config.active_storage.service_configurations = {"local" => {"service" => "Disk", "root" => File.join(root, "storage")}}
   end
   application.config.root = root

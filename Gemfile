@@ -12,7 +12,7 @@ end
 rails_series = ENV.fetch("RAILS_VERSION", "8.1")
 rails_requirement = (rails_series.count(".") == 1) ? "~> #{rails_series}.0" : "~> #{rails_series}"
 rails_requirements = [rails_requirement]
-rails_minimum = {"7.2" => "7.2.4", "8.0" => "8.0.5.1", "8.1" => "8.1.4"}[rails_series]
+rails_minimum = {"7.2" => "7.2.4", "8.0" => "8.0.5.2", "8.1" => "8.1.4.1"}[rails_series]
 rails_requirements << ">= #{rails_minimum}" if rails_minimum
 gem "rails", *rails_requirements
 
