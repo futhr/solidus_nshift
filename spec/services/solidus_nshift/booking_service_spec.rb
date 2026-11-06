@@ -183,4 +183,81 @@ RSpec.describe SolidusNshift::BookingService do
     expect(delivery_client).not_to have_received(:create_shipment)
     expect(SolidusNshift::ReconcileBookingJob).not_to have_been_enqueued
   end
+
+  {
+    "checkout_partial" => SolidusNshift::Checkout::PartialShipmentPayload,
+    "delivery_booking" => SolidusNshift::Delivery::ShipmentPayload
+  }.each do |kind, payload_class|
+    it "preserves another worker's #{kind} claim when reconciliation bookkeeping is stale" do
+      fulfillment = SolidusNshift::FulfillmentIntent.new(shipment: data[:shipment]).call
+      if kind == "delivery_booking"
+        fulfillment.update!(state: "partial_created", checkout_partial_shipment_id: "partial-1")
+      end
+      stale_fulfillment = SolidusNshift::Fulfillment.find(fulfillment.id)
+      stale_fulfillment.connection = connection
+      operation = SolidusNshift::OperationIntent.new(
+        fulfillment:, kind:,
+        fingerprint: SolidusNshift::PayloadFingerprint.call(payload_class.new(fulfillment:).call)
+      ).call
+      operation.claim!
+      fulfillment.update!(state: "booking")
+      intent = instance_double(SolidusNshift::FulfillmentIntent, call: stale_fulfillment)
+      allow(SolidusNshift::FulfillmentIntent).to receive(:new).and_return(intent)
+
+      expect { described_class.new(shipment: data[:shipment]).call }
+        .to raise_error(ActiveRecord::StaleObjectError)
+      status_after_failed_claim = operation.reload.status
+      allow(SolidusNshift::FulfillmentIntent).to receive(:new).and_call_original
+      allow_any_instance_of(SolidusNshift::Connection).to receive(:checkout_client).and_return(checkout_client)
+      allow_any_instance_of(SolidusNshift::Connection).to receive(:delivery_client).and_return(delivery_client)
+
+      described_class.new(shipment: data[:shipment]).call
+
+      expect(status_after_failed_claim).to eq("in_progress")
+      expect(operation.reload).to have_attributes(status: "in_progress", attempts: 1, revision: 1)
+      expect(fulfillment.operations.where(kind:).count).to eq(1)
+      expect(checkout_client).not_to have_received(:create_partial_shipment)
+      expect(delivery_client).not_to have_received(:create_shipment)
+    end
+
+    it "rejects its own #{kind} claim when a stale state update prevents dispatch" do
+      fulfillment = SolidusNshift::FulfillmentIntent.new(shipment: data[:shipment]).call
+      if kind == "delivery_booking"
+        fulfillment.update!(state: "partial_created", checkout_partial_shipment_id: "partial-1")
+      end
+      stale_fulfillment = SolidusNshift::Fulfillment.find(fulfillment.id)
+      stale_fulfillment.connection = connection
+      fulfillment.update!(last_error_class: "ConcurrentMetadataUpdate")
+      intent = instance_double(SolidusNshift::FulfillmentIntent, call: stale_fulfillment)
+      allow(SolidusNshift::FulfillmentIntent).to receive(:new).and_return(intent)
+
+      expect { described_class.new(shipment: data[:shipment]).call }
+        .to raise_error(ActiveRecord::StaleObjectError)
+
+      expect(fulfillment.operations.find_by!(kind:)).to have_attributes(status: "rejected", attempts: 1)
+      expect(checkout_client).not_to have_received(:create_partial_shipment)
+      expect(delivery_client).not_to have_received(:create_shipment)
+    end
+  end
+
+  it "does not carry Checkout claim ownership into another worker's Delivery operation" do
+    operation = nil
+    allow(connection).to receive(:delivery_client) do
+      fulfillment = SolidusNshift::Fulfillment.find_by!(shipment: data[:shipment])
+      payload = SolidusNshift::Delivery::ShipmentPayload.new(fulfillment:).call
+      operation = SolidusNshift::OperationIntent.new(
+        fulfillment:, kind: "delivery_booking", fingerprint: SolidusNshift::PayloadFingerprint.call(payload)
+      ).call
+      operation.claim!
+      fulfillment.update!(state: "booking")
+      delivery_client
+    end
+
+    expect { described_class.new(shipment: data[:shipment]).call }
+      .to raise_error(ActiveRecord::StaleObjectError)
+
+    expect(operation.reload).to have_attributes(status: "in_progress", attempts: 1)
+    expect(checkout_client).to have_received(:create_partial_shipment).once
+    expect(delivery_client).not_to have_received(:create_shipment)
+  end
 end

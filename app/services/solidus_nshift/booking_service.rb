@@ -29,11 +29,15 @@ module SolidusNshift
     private
 
     def process_checkout
+      claimed = false
       dispatched = false
       payload = Checkout::PartialShipmentPayload.new(fulfillment: @fulfillment).call
       client = @fulfillment.connection.checkout_client
       operation = operation_for("checkout_partial", payload)
-      return unless claim(operation)
+      claimed = claim(operation)
+      return unless claimed
+
+      @fulfillment.update!(state: "booking")
 
       response = instrument("checkout", "partial_shipment") do
         dispatched = true
@@ -50,29 +54,33 @@ module SolidusNshift
       end
     rescue *UNKNOWN_ERRORS => error
       unless dispatched
-        mark_rejected(operation, error) if operation
+        mark_rejected(operation, error, claimed:) if operation
         raise
       end
 
-      mark_unknown(operation, error)
+      mark_unknown(operation, error, claimed:)
     rescue Error => error
-      mark_rejected(operation, error)
+      mark_rejected(operation, error, claimed:)
     rescue => error
       unless dispatched
-        mark_rejected(operation, error) if operation
+        mark_rejected(operation, error, claimed:) if operation
         raise
       end
 
-      mark_unknown(operation, error)
+      mark_unknown(operation, error, claimed:)
       raise
     end
 
     def process_delivery
+      claimed = false
       dispatched = false
       payload = Delivery::ShipmentPayload.new(fulfillment: @fulfillment).call
       client = @fulfillment.connection.delivery_client
       operation = operation_for("delivery_booking", payload)
-      return unless claim(operation)
+      claimed = claim(operation)
+      return unless claimed
+
+      @fulfillment.update!(state: "booking")
 
       shipment = instrument("delivery", "create_shipment") do
         dispatched = true
@@ -81,20 +89,20 @@ module SolidusNshift
       PersistDeliveryResult.new(fulfillment: @fulfillment, shipment:, operation:).call
     rescue *UNKNOWN_ERRORS => error
       unless dispatched
-        mark_rejected(operation, error) if operation
+        mark_rejected(operation, error, claimed:) if operation
         raise
       end
 
-      mark_unknown(operation, error, reconcile: true)
+      mark_unknown(operation, error, claimed:, reconcile: true)
     rescue Error => error
-      mark_rejected(operation, error)
+      mark_rejected(operation, error, claimed:)
     rescue => error
       unless dispatched
-        mark_rejected(operation, error) if operation
+        mark_rejected(operation, error, claimed:) if operation
         raise
       end
 
-      mark_unknown(operation, error, reconcile: true)
+      mark_unknown(operation, error, claimed:, reconcile: true)
       raise
     end
 
@@ -104,22 +112,24 @@ module SolidusNshift
     end
 
     def claim(operation)
-      claimed = operation.claim!
-      @fulfillment.update!(state: "booking") if claimed
-      claimed
+      operation.claim!
     rescue ReconciliationRequired => error
       @fulfillment.record_error!(error, state: "reconciliation_pending")
       enqueue_reconciliation if operation.kind == "delivery_booking"
       false
     end
 
-    def mark_unknown(operation, error, reconcile: false)
+    def mark_unknown(operation, error, claimed:, reconcile: false)
+      return unless claimed
+
       operation&.mark_unknown!(error)
       @fulfillment&.record_error!(error, state: "reconciliation_pending")
       enqueue_reconciliation if reconcile && @fulfillment&.persisted?
     end
 
-    def mark_rejected(operation, error)
+    def mark_rejected(operation, error, claimed:)
+      return if operation && !claimed
+
       operation&.mark_rejected!(error)
       @fulfillment&.record_error!(error, state: "rejected")
     end

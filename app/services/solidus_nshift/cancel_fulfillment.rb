@@ -7,6 +7,7 @@ module SolidusNshift
     end
 
     def call
+      claimed = false
       dispatched = false
       raise ValidationError, "nShift shipment has not been booked" if @fulfillment.provider_shipment_id.blank?
       return @fulfillment if @fulfillment.state == "canceled"
@@ -19,7 +20,8 @@ module SolidusNshift
       operation = OperationIntent.new(
         fulfillment: @fulfillment, kind: "delivery_cancel", fingerprint:
       ).call
-      return @fulfillment unless operation.claim!
+      claimed = operation.claim!
+      return @fulfillment unless claimed
 
       dispatched = true
       client.cancel_shipment(shipment_id: @fulfillment.provider_shipment_id)
@@ -32,11 +34,11 @@ module SolidusNshift
       @fulfillment
     rescue TimeoutUnknownOutcome, MalformedResponseError => error
       unless dispatched
-        operation&.mark_rejected!(error)
+        operation&.mark_rejected!(error) if claimed
         raise
       end
 
-      operation&.mark_unknown!(error)
+      operation&.mark_unknown!(error) if claimed
       @fulfillment.record_error!(error, state: "reconciliation_pending")
       enqueue_reconciliation
       @fulfillment
@@ -45,16 +47,16 @@ module SolidusNshift
       enqueue_reconciliation
       @fulfillment
     rescue Error => error
-      operation&.mark_rejected!(error)
+      operation&.mark_rejected!(error) if claimed
       @fulfillment.record_error!(error)
       @fulfillment
     rescue => error
       unless dispatched
-        operation&.mark_rejected!(error)
+        operation&.mark_rejected!(error) if claimed
         raise
       end
 
-      operation&.mark_unknown!(error)
+      operation&.mark_unknown!(error) if claimed
       @fulfillment.record_error!(error, state: "reconciliation_pending")
       enqueue_reconciliation
       raise

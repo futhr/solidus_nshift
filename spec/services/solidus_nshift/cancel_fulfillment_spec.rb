@@ -60,4 +60,30 @@ RSpec.describe SolidusNshift::CancelFulfillment do
     expect(fulfillment.operations).to be_empty
     expect(SolidusNshift::ReconcileBookingJob).not_to have_been_enqueued
   end
+
+  [RuntimeError, SolidusNshift::Error, SolidusNshift::MalformedResponseError].each do |error_class|
+    it "preserves an unowned cancellation when claiming raises #{error_class}" do
+      operation = SolidusNshift::OperationIntent.new(
+        fulfillment:, kind: "delivery_cancel",
+        fingerprint: SolidusNshift::PayloadFingerprint.call({
+          shipment_id: fulfillment.provider_shipment_id,
+          merchant_reference: fulfillment.merchant_reference
+        })
+      ).call
+      operation.claim!
+      allow_any_instance_of(SolidusNshift::Operation).to receive(:claim!)
+        .and_raise(error_class, "claim failed before ownership")
+
+      if error_class == SolidusNshift::Error
+        described_class.new(fulfillment:).call
+      else
+        expect { described_class.new(fulfillment:).call }
+          .to raise_error(error_class, "claim failed before ownership")
+      end
+
+      expect(operation.reload).to have_attributes(status: "in_progress", attempts: 1, revision: 1)
+      expect(fulfillment.operations.where(kind: "delivery_cancel").count).to eq(1)
+      expect(client).not_to have_received(:cancel_shipment)
+    end
+  end
 end
