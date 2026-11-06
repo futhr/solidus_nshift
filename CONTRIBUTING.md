@@ -21,7 +21,7 @@ gem install bundler-audit
 bundle-audit check --gemfile-lock gemfiles/runtime_audit.gemfile.lock --update
 ```
 
-Run `bundle outdated` and `bundle-audit check --update` for the full development bundle too. The released `solidus_dev_support` currently pins a Puma version with known advisories; see [SECURITY.md](SECURITY.md). Do not treat a clean runtime audit as a clean development audit.
+Run `bundle outdated` and `bundle-audit check --update` for the full development bundle too. The released `solidus_dev_support` currently pins a Puma version with known advisories. The default `.bundler-audit.yml` excepts only the two development-only PROXY protocol advisories described in [SECURITY.md](SECURITY.md); review that exception when interpreting a passing gate. Do not treat a clean runtime audit as a clean development audit.
 
 To check an application without the legacy backend:
 
